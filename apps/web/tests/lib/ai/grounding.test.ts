@@ -22,7 +22,7 @@ vi.mock('@/lib/ai/vector-index', () => {
       size: vi.fn(() => docs.length),
       clear: vi.fn(() => { docs.length = 0; }),
     },
-    initializeVectorIndex: vi.fn(),
+    initializeVectorIndex: vi.fn().mockResolvedValue(undefined),
   };
 });
 
@@ -31,18 +31,18 @@ const { retrieveRelevantSources, formatSourcesForPrompt, verifyGrounding, create
 const { vectorIndex } = await import('@/lib/ai/vector-index');
 
 describe('retrieveRelevantSources', () => {
-  it('returns an array of sources', () => {
-    const sources = retrieveRelevantSources('gate information');
+  it('returns an array of sources', async () => {
+    const sources = await retrieveRelevantSources('gate information');
     expect(Array.isArray(sources)).toBe(true);
   });
 
-  it('respects topK parameter', () => {
-    const sources = retrieveRelevantSources('stadium', { topK: 2 });
+  it('respects topK parameter', async () => {
+    const sources = await retrieveRelevantSources('stadium', { topK: 2 });
     expect(sources.length).toBeLessThanOrEqual(2);
   });
 
-  it('returns sources with required fields', () => {
-    const sources = retrieveRelevantSources('security');
+  it('returns sources with required fields', async () => {
+    const sources = await retrieveRelevantSources('security');
     for (const source of sources) {
       expect(source).toHaveProperty('id');
       expect(source).toHaveProperty('type');
@@ -52,8 +52,8 @@ describe('retrieveRelevantSources', () => {
     }
   });
 
-  it('returns empty array for gibberish query with no docs', () => {
-    const sources = retrieveRelevantSources('xyzzyplugh');
+  it('returns empty array for gibberish query with no docs', async () => {
+    const sources = await retrieveRelevantSources('xyzzyplugh');
     expect(Array.isArray(sources)).toBe(true);
   });
 });

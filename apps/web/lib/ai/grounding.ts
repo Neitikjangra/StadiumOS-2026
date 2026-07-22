@@ -3,11 +3,11 @@ import { vectorIndex, initializeVectorIndex } from './vector-index';
 import { runGuardrails, detectPromptInjection } from './guardrails';
 import { calculateConfidence } from './confidence';
 
-export function retrieveRelevantSources(
+export async function retrieveRelevantSources(
   query: string,
   options: { topK?: number; type?: string; language?: string } = {}
-): AISource[] {
-  initializeVectorIndex();
+): Promise<AISource[]> {
+  await initializeVectorIndex();
 
   const results = vectorIndex.search(query, options.topK || 5, {
     type: options.type,

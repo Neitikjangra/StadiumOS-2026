@@ -144,7 +144,7 @@ export async function processPostIncidentSummary(input: PostIncidentInput): Prom
   const startTime = Date.now();
   const queryId = generateQueryId();
 
-  const sources = retrieveRelevantSources(
+  const sources = await retrieveRelevantSources(
     `${input.category} incident post-analysis ${input.severity} severity`,
     { topK: 5 }
   );

@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
 
-  const result = previewMessage({
+  const result = await previewMessage({
     workflow,
     channel,
     templateId,

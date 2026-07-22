@@ -1,4 +1,5 @@
 import type { VectorDocument } from '../types';
+import { loadFAQDocuments } from './db-loaders';
 
 export const FAQ_DOCUMENTS: Omit<VectorDocument, 'embedding'>[] = [
   {
@@ -52,3 +53,8 @@ export const FAQ_DOCUMENTS: Omit<VectorDocument, 'embedding'>[] = [
     metadata: { type: 'faq', title: 'Fan Code of Conduct', tags: ['conduct', 'behavior', 'rules', 'respect'], language: 'en', lastUpdated: '2026-06-01' },
   },
 ];
+
+export async function loadFAQDocumentsFromDB(): Promise<Omit<VectorDocument, 'embedding'>[]> {
+  const dbDocs = await loadFAQDocuments();
+  return dbDocs.length > 0 ? dbDocs : FAQ_DOCUMENTS;
+}

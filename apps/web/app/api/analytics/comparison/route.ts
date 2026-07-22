@@ -16,6 +16,6 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const metricId = (searchParams.get('metricId') || 'gate_wait_time') as MetricId;
   const mode = (searchParams.get('mode') || 'stadium') as 'stadium' | 'match' | 'time';
-  const comparison = computeComparison(metricId, mode);
+  const comparison = await computeComparison(metricId, mode);
   return NextResponse.json({ metricId, mode, comparison });
 }

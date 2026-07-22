@@ -122,7 +122,7 @@ export async function processIncidentSummary(input: IncidentSummaryInput): Promi
   const startTime = Date.now();
   const queryId = generateQueryId();
 
-  const sources = retrieveRelevantSources(
+  const sources = await retrieveRelevantSources(
     `${input.category} incident ${input.severity} severity ${input.title}`,
     { topK: 3 }
   );

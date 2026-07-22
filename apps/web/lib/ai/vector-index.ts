@@ -99,22 +99,31 @@ class VectorIndex {
 
 export const vectorIndex = VectorIndex.getInstance();
 
-export function initializeVectorIndex(): void {
+export async function initializeVectorIndex(): Promise<void> {
   if (vectorIndex.size() > 0) return;
 
-  const { SOP_DOCUMENTS } = require('./data/sop-documents');
-  const { FAQ_DOCUMENTS } = require('./data/faq-documents');
-  const { POLICY_DOCUMENTS } = require('./data/policy-documents');
-  const { VENUE_METADATA_DOCUMENTS } = require('./data/venue-metadata');
-  const { ACCESSIBILITY_DOCUMENTS } = require('./data/accessibility-guidance');
-  const { TRANSPORT_DOCUMENTS } = require('./data/transport-guidance');
+  const { loadVenueMetadataDocuments } = await import('./data/venue-metadata');
+  const { loadFAQDocumentsFromDB } = await import('./data/faq-documents');
+  const { loadSOPDocumentsFromDB } = await import('./data/sop-documents');
+  const { loadPolicyDocumentsFromDB } = await import('./data/policy-documents');
+  const { loadTransportDocumentsFromDB } = await import('./data/transport-guidance');
+  const { loadAccessibilityDocumentsFromDB } = await import('./data/accessibility-guidance');
+
+  const [venueDocs, faqDocs, sopDocs, policyDocs, transportDocs, accessibilityDocs] = await Promise.all([
+    loadVenueMetadataDocuments(),
+    loadFAQDocumentsFromDB(),
+    loadSOPDocumentsFromDB(),
+    loadPolicyDocumentsFromDB(),
+    loadTransportDocumentsFromDB(),
+    loadAccessibilityDocumentsFromDB(),
+  ]);
 
   vectorIndex.addDocuments([
-    ...SOP_DOCUMENTS,
-    ...FAQ_DOCUMENTS,
-    ...POLICY_DOCUMENTS,
-    ...VENUE_METADATA_DOCUMENTS,
-    ...ACCESSIBILITY_DOCUMENTS,
-    ...TRANSPORT_DOCUMENTS,
+    ...venueDocs,
+    ...faqDocs,
+    ...sopDocs,
+    ...policyDocs,
+    ...transportDocs,
+    ...accessibilityDocs,
   ]);
 }

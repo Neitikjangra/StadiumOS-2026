@@ -1,4 +1,5 @@
 import type { VectorDocument } from '../types';
+import { loadKnowledgeDocuments } from './db-loaders';
 
 export const TRANSPORT_DOCUMENTS: Omit<VectorDocument, 'embedding'>[] = [
   {
@@ -42,3 +43,8 @@ export const TRANSPORT_DOCUMENTS: Omit<VectorDocument, 'embedding'>[] = [
     metadata: { type: 'transport', title: 'Post-Match Exit Strategy', tags: ['exit', 'congestion', 'strategy', 'real_time'], language: 'en', lastUpdated: '2026-06-01' },
   },
 ];
+
+export async function loadTransportDocumentsFromDB(): Promise<Omit<VectorDocument, 'embedding'>[]> {
+  const dbDocs = await loadKnowledgeDocuments(['fan_services', 'match_day_operations']);
+  return dbDocs.length > 0 ? dbDocs : TRANSPORT_DOCUMENTS;
+}

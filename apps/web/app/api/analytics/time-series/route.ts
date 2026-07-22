@@ -16,6 +16,6 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const metricId = (searchParams.get('metricId') || 'gate_wait_time') as MetricId;
   const window = (searchParams.get('window') || '24h') as TimeWindow;
-  const series = computeTimeSeries(metricId, window);
+  const series = await computeTimeSeries(metricId, window);
   return NextResponse.json({ metricId, window, series });
 }

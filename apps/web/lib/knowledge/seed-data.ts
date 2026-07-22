@@ -1,4 +1,4 @@
-import type { KnowledgeDocument } from './types';
+import type { KnowledgeDocument, KnowledgeDocumentType, KnowledgeLanguage } from './types';
 
 export const SEED_DOCUMENTS: Omit<KnowledgeDocument, 'id' | 'version' | 'status' | 'createdAt' | 'updatedAt'>[] = [
   {
@@ -198,3 +198,36 @@ export const SEED_DOCUMENTS: Omit<KnowledgeDocument, 'id' | 'version' | 'status'
     metadata: { department: 'Operations', priority: 'high', reviewCycle: 'annual' },
   },
 ];
+
+export async function loadSeedDocumentsFromDB(): Promise<Omit<KnowledgeDocument, 'id' | 'version' | 'status' | 'createdAt' | 'updatedAt'>[]> {
+  try {
+    const { prisma } = await import('@/lib/prisma');
+    const docs = await prisma.knowledgeDocument.findMany({
+      where: {
+        isDeleted: false,
+      },
+    });
+
+    if (docs.length === 0) {
+      return SEED_DOCUMENTS;
+    }
+
+    return docs.map((doc) => ({
+      title: doc.title,
+      content: doc.content,
+      type: doc.category as KnowledgeDocumentType,
+      language: doc.language as KnowledgeLanguage,
+      stadiumId: doc.stadiumId || 'all',
+      tags: JSON.parse(doc.tags || '[]'),
+      effectiveDate: doc.createdAt.toISOString().split('T')[0],
+      lastReviewedBy: doc.createdBy,
+      lastReviewedAt: doc.updatedAt.toISOString(),
+      createdBy: doc.createdBy,
+      summary: doc.title,
+      metadata: {},
+    }));
+  } catch (error) {
+    console.warn('Failed to load seed documents from DB:', error);
+    return SEED_DOCUMENTS;
+  }
+}

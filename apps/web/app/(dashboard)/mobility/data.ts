@@ -1,3 +1,7 @@
+"use client";
+
+// ── Fallback defaults (used when API is unavailable) ──────────────────────────
+
 export const stadiums = [
   { id: "metlife", name: "MetLife Stadium" },
   { id: "atnt", name: "AT&T Stadium" },
@@ -58,3 +62,179 @@ export const predictions = [
   { label: "Next 1 hour", expected: 71500, confidence: 84, trend: "up" as const, delta: "+6,500" },
   { label: "Next 2 hours", expected: 58000, confidence: 71, trend: "down" as const, delta: "-7,000" },
 ];
+
+// ── API mapping helpers ───────────────────────────────────────────────────────
+
+function mapGateType(apiType: string): string {
+  switch (apiType) {
+    case "vip": return "VIP";
+    case "accessible": return "Accessible";
+    case "emergency": return "Emergency";
+    default: return "Main";
+  }
+}
+
+function mapGateStatus(apiStatus: string): "normal" | "congested" | "critical" {
+  switch (apiStatus) {
+    case "restricted": return "congested";
+    case "closed":
+    case "emergency_only": return "critical";
+    default: return "normal";
+  }
+}
+
+function mapAlertType(apiType: string): string {
+  switch (apiType) {
+    case "evacuation_advisory": return "evacuation_needed";
+    case "securitythreat": return "crowd_surge";
+    case "equipment_failure": return "gate_congestion";
+    default: return apiType;
+  }
+}
+
+function mapAlertSeverity(apiSeverity: string): "critical" | "high" | "medium" | "low" {
+  switch (apiSeverity) {
+    case "critical": return "critical";
+    case "warning": return "high";
+    case "info": return "low";
+    default: return "medium";
+  }
+}
+
+function mapQueueType(apiType: string): string {
+  switch (apiType) {
+    case "entry_gate": return "ticket_scan";
+    case "security_check": return "metal_detector";
+    case "ticket_office": return "ticket_scan";
+    case "accessible_entry": return "ticket_scan";
+    default: return apiType;
+  }
+}
+
+function mapQueueStatus(
+  status: string
+): "normal" | "congested" | "critical" {
+  switch (status) {
+    case "elevated": return "congested";
+    case "congested": return "congested";
+    case "critical": return "critical";
+    case "evacuation": return "critical";
+    default: return "normal";
+  }
+}
+
+function formatTimeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const sec = Math.floor(diff / 1000);
+  if (sec < 60) return `${sec} sec ago`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min} min ago`;
+  const hr = Math.floor(min / 60);
+  return `${hr}h ago`;
+}
+
+// ── Fetch functions ───────────────────────────────────────────────────────────
+
+export async function fetchStadiums() {
+  try {
+    const res = await fetch("/api/stadiums");
+    const json = await res.json();
+    if (json.success && json.data?.items) {
+      return json.data.items.map((s: { id: string; name: string }) => ({
+        id: s.id,
+        name: s.name,
+      }));
+    }
+    return stadiums;
+  } catch {
+    return stadiums;
+  }
+}
+
+export async function fetchMobilityData(stadiumId: string) {
+  try {
+    const res = await fetch(`/api/mobility?stadiumId=${stadiumId}`);
+    const json = await res.json();
+    if (!json.success) return { gates, zones, queues };
+
+    const d = json.data;
+
+    const mappedGates = (d.gates || []).map(
+      (g: {
+        name: string;
+        type: string;
+        capacity: number;
+        status: string;
+      }) => ({
+        name: g.name,
+        type: mapGateType(g.type),
+        capacity: g.capacity,
+        flowIn: 0,
+        flowOut: 0,
+        queueLength: 0,
+        waitTime: 0,
+        throughput: 0,
+        status: mapGateStatus(g.status),
+      })
+    );
+
+    const mappedQueues = (d.queueSnapshots || []).map(
+      (q: {
+        queueType: string;
+        length: number;
+        waitTime: number;
+        status: string;
+        gate?: { name: string } | null;
+        zone?: { name: string } | null;
+        timestamp: string;
+      }) => ({
+        type: mapQueueType(q.queueType),
+        name: q.gate?.name || q.zone?.name || q.queueType.replace(/_/g, " "),
+        length: q.length,
+        waitMinutes: q.waitTime,
+        status: mapQueueStatus(q.status),
+        updatedAt: formatTimeAgo(q.timestamp),
+      })
+    );
+
+    return {
+      gates: mappedGates.length > 0 ? mappedGates : gates,
+      zones,
+      queues: mappedQueues.length > 0 ? mappedQueues : queues,
+    };
+  } catch {
+    return { gates, zones, queues };
+  }
+}
+
+export async function fetchAlerts(stadiumId: string) {
+  try {
+    const res = await fetch(`/api/mobility?stadiumId=${stadiumId}`);
+    const json = await res.json();
+    if (!json.success) return alerts;
+
+    const mappedAlerts = (json.data?.alerts || []).map(
+      (a: {
+        id: string;
+        type: string;
+        severity: string;
+        message: string;
+        gate?: { name: string } | null;
+        acknowledgedAt?: string | null;
+        createdAt: string;
+      }) => ({
+        id: a.id,
+        type: mapAlertType(a.type),
+        severity: mapAlertSeverity(a.severity),
+        message: a.message,
+        location: a.gate?.name || "Unknown",
+        time: formatTimeAgo(a.createdAt),
+        acknowledged: !!a.acknowledgedAt,
+      })
+    );
+
+    return mappedAlerts.length > 0 ? mappedAlerts : alerts;
+  } catch {
+    return alerts;
+  }
+}

@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
   });
 
   // Step 5: Vector-based knowledge retrieval
-  const sources = retrieveRelevantSources(query, {
+  const sources = await retrieveRelevantSources(query, {
     topK: 5,
     language,
   });

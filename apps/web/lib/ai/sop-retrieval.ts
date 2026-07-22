@@ -117,7 +117,7 @@ export async function processSOPRetrieval(input: SOPRetrievalInput): Promise<AIR
   const queryId = generateQueryId();
 
   const searchQuery = `${input.query} ${input.category || ''} ${input.context?.incidentType || ''} ${input.context?.severity || ''}`;
-  const sources = retrieveRelevantSources(searchQuery, {
+  const sources = await retrieveRelevantSources(searchQuery, {
     topK: 5,
     language: input.language,
     type: 'sop',

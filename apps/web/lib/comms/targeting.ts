@@ -1,88 +1,107 @@
-import type { AudienceTarget, Recipient, Language, AudienceType } from './types';
+import { prisma } from '@/lib/prisma';
+import type { AudienceTarget, Recipient, Language } from './types';
+import { Prisma } from '@prisma/client';
 
-interface MockRecipient {
-  id: string;
-  type: 'fan' | 'operator' | 'staff' | 'vip';
-  name: string;
-  email: string;
-  phone: string;
-  pushToken: string;
-  language: Language;
-  section: string;
-  zone: string;
-  role: string;
-  stadiumId: string;
+type StaffUserRole = 'super_admin' | 'tournament_ops' | 'stadium_manager' | 'security_lead' | 'mobility_lead' | 'vendor_manager' | 'volunteer_lead' | 'support_agent' | 'fan_user';
+
+const STAFF_ROLES: StaffUserRole[] = ['volunteer_lead', 'support_agent'];
+
+function staffRoleType(role: StaffUserRole): 'operator' | 'staff' {
+  return STAFF_ROLES.includes(role) ? 'staff' : 'operator';
 }
 
-const MOCK_RECIPIENTS: MockRecipient[] = [
-  { id: 'fan-001', type: 'fan', name: 'Alice Garcia', email: 'alice@test.com', phone: '+1555010001', pushToken: 'tok-001', language: 'en', section: 'A1', zone: 'north', role: 'fan', stadiumId: 'met-life' },
-  { id: 'fan-002', type: 'fan', name: 'Bob Chen', email: 'bob@test.com', phone: '+1555010002', pushToken: 'tok-002', language: 'es', section: 'B2', zone: 'south', role: 'fan', stadiumId: 'met-life' },
-  { id: 'fan-003', type: 'fan', name: 'Claire Dupont', email: 'claire@test.com', phone: '+1555010003', pushToken: '', language: 'fr', section: 'C3', zone: 'east', role: 'fan', stadiumId: 'sofi' },
-  { id: 'fan-004', type: 'fan', name: 'Ahmed Hassan', email: 'ahmed@test.com', phone: '+1555010004', pushToken: 'tok-004', language: 'ar', section: 'A1', zone: 'north', role: 'fan', stadiumId: 'met-life' },
-  { id: 'fan-005', type: 'fan', name: 'Maria Rodriguez', email: 'maria@test.com', phone: '+1555010005', pushToken: 'tok-005', language: 'es', section: 'D4', zone: 'west', role: 'fan', stadiumId: 'at-and-t' },
-  { id: 'fan-006', type: 'fan', name: 'James Wilson', email: 'james@test.com', phone: '+1555010006', pushToken: 'tok-006', language: 'en', section: 'B2', zone: 'south', role: 'fan', stadiumId: 'met-life' },
-  { id: 'fan-007', type: 'fan', name: 'Yuki Tanaka', email: 'yuki@test.com', phone: '+1555010007', pushToken: 'tok-007', language: 'en', section: 'VIP', zone: 'premium', role: 'vip', stadiumId: 'sofi' },
-  { id: 'op-001', type: 'operator', name: 'Ops Manager', email: 'ops@test.com', phone: '+1555020001', pushToken: 'tok-op1', language: 'en', section: 'control', zone: 'all', role: 'stadium_manager', stadiumId: 'met-life' },
-  { id: 'op-002', type: 'operator', name: 'Security Lead', email: 'sec@test.com', phone: '+1555020002', pushToken: 'tok-op2', language: 'en', section: 'control', zone: 'all', role: 'security_lead', stadiumId: 'met-life' },
-  { id: 'op-003', type: 'operator', name: 'Mobility Lead', email: 'mob@test.com', phone: '+1555020003', pushToken: 'tok-op3', language: 'es', section: 'control', zone: 'all', role: 'mobility_lead', stadiumId: 'met-life' },
-  { id: 'staff-001', type: 'staff', name: 'Steward A', email: 'steward-a@test.com', phone: '+1555030001', pushToken: 'tok-st1', language: 'en', section: 'A1', zone: 'north', role: 'volunteer_lead', stadiumId: 'met-life' },
-  { id: 'staff-002', type: 'staff', name: 'Medic B', email: 'medic-b@test.com', phone: '+1555030002', pushToken: 'tok-st2', language: 'en', section: 'medical', zone: 'all', role: 'support_agent', stadiumId: 'met-life' },
-];
+export async function resolveRecipients(target: AudienceTarget): Promise<Recipient[]> {
+  const recipients: Recipient[] = [];
 
-export function resolveRecipients(target: AudienceTarget): Recipient[] {
-  let pool = [...MOCK_RECIPIENTS];
+  // ── Staff / Operators ──
+  if (target.type !== 'all_fans') {
+    const where: Prisma.StaffUserWhereInput = {
+      isDeleted: false,
+      ...(target.stadiumId ? { stadiumId: target.stadiumId } : {}),
+      ...(target.languages?.length ? { language: { in: target.languages } } : {}),
+    };
 
-  if (target.stadiumId) {
-    pool = pool.filter((r) => r.stadiumId === target.stadiumId);
+    if (target.type === 'role' && target.roles?.length) {
+      where.role = { in: target.roles as StaffUserRole[] };
+    }
+
+    const staff = await prisma.staffUser.findMany({ where });
+
+    for (const s of staff) {
+      if (target.type === 'section' || target.type === 'zone') continue;
+      if (target.type === 'role' && target.roles?.length && !target.roles.includes(s.role)) continue;
+
+      recipients.push({
+        id: s.id,
+        type: staffRoleType(s.role),
+        name: s.name,
+        email: s.email,
+        language: s.language as Language,
+        role: s.role,
+        section: 'control',
+        zone: 'all',
+      });
+    }
   }
 
-  switch (target.type) {
-    case 'all_fans':
-      pool = pool.filter((r) => r.type === 'fan');
-      break;
-    case 'all_operators':
-      pool = pool.filter((r) => r.type === 'operator' || r.type === 'staff');
-      break;
-    case 'zone':
-      if (target.zoneIds?.length) {
-        pool = pool.filter((r) => target.zoneIds!.includes(r.zone));
-      }
-      break;
-    case 'section':
-      if (target.sectionIds?.length) {
-        pool = pool.filter((r) => target.sectionIds!.includes(r.section));
-      }
-      break;
-    case 'role':
-      if (target.roles?.length) {
-        pool = pool.filter((r) => target.roles!.includes(r.role));
-      }
-      break;
-    case 'language':
-      if (target.languages?.length) {
-        pool = pool.filter((r) => target.languages!.includes(r.language));
-      }
-      break;
-    case 'custom':
-      break;
+  // ── Fans ──
+  const includeFans =
+    target.type !== 'all_operators' &&
+    !(target.type === 'role' && target.roles?.length && !target.roles.includes('fan'));
+
+  if (includeFans) {
+    const ticketFilter: Prisma.TicketProfileWhereInput = {};
+
+    if (target.type === 'section' && target.sectionIds?.length) {
+      ticketFilter.section = { in: target.sectionIds };
+    }
+    if (target.type === 'zone' && target.zoneIds?.length) {
+      ticketFilter.gate = { in: target.zoneIds };
+    }
+    if (target.stadiumId) {
+      const matches = await prisma.match.findMany({
+        where: { stadiumId: target.stadiumId },
+        select: { id: true },
+      });
+      const matchIds = matches.map((m: { id: string }) => m.id);
+
+      if (matchIds.length === 0) return recipients;
+      ticketFilter.matchId = { in: matchIds };
+    }
+
+    const hasTicketFilter = Object.keys(ticketFilter).length > 0;
+
+    const fans = await prisma.fanUser.findMany({
+      where: {
+        isDeleted: false,
+        ...(target.languages?.length ? { language: { in: target.languages } } : {}),
+        ...(hasTicketFilter ? { tickets: { some: ticketFilter } } : {}),
+      },
+      include: {
+        tickets: {
+          select: { section: true, gate: true },
+          take: 1,
+        },
+      },
+    });
+
+    for (const f of fans) {
+      const ticket = f.tickets[0];
+      recipients.push({
+        id: f.id,
+        type: 'fan',
+        name: f.name,
+        email: f.email,
+        phone: f.phone || undefined,
+        language: f.language as Language,
+        section: ticket?.section,
+        zone: ticket?.gate,
+        role: 'fan',
+      });
+    }
   }
 
-  if (target.languages?.length && target.type !== 'language') {
-    pool = pool.filter((r) => target.languages!.includes(r.language));
-  }
-
-  return pool.map((r) => ({
-    id: r.id,
-    type: r.type,
-    name: r.name,
-    email: r.email,
-    phone: r.phone,
-    pushToken: r.pushToken,
-    language: r.language,
-    section: r.section,
-    zone: r.zone,
-    role: r.role,
-  }));
+  return recipients;
 }
 
 export function getTargetDescription(target: AudienceTarget): string {
@@ -103,18 +122,33 @@ export function getTargetDescription(target: AudienceTarget): string {
   return parts.join(' | ');
 }
 
-export function getMockRecipientCount(): number {
-  return MOCK_RECIPIENTS.length;
+export async function getMockRecipientCount(): Promise<number> {
+  const [staffCount, fanCount] = await Promise.all([
+    prisma.staffUser.count({ where: { isDeleted: false } }),
+    prisma.fanUser.count({ where: { isDeleted: false } }),
+  ]);
+  return staffCount + fanCount;
 }
 
-export function getMockZones(): string[] {
-  return [...new Set(MOCK_RECIPIENTS.map((r) => r.zone))];
+export async function getMockZones(): Promise<string[]> {
+  const result = await prisma.ticketProfile.findMany({
+    distinct: ['gate'],
+    select: { gate: true },
+  });
+  return result.map((r: { gate: string }) => r.gate);
 }
 
-export function getMockSections(): string[] {
-  return [...new Set(MOCK_RECIPIENTS.map((r) => r.section))];
+export async function getMockSections(): Promise<string[]> {
+  const result = await prisma.ticketProfile.findMany({
+    distinct: ['section'],
+    select: { section: true },
+  });
+  return result.map((r: { section: string }) => r.section);
 }
 
-export function getMockStadiums(): string[] {
-  return [...new Set(MOCK_RECIPIENTS.map((r) => r.stadiumId))];
+export async function getMockStadiums(): Promise<string[]> {
+  const result = await prisma.stadium.findMany({
+    select: { id: true },
+  });
+  return result.map((r: { id: string }) => r.id);
 }

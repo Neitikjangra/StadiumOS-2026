@@ -31,7 +31,17 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { stadiums, gates, zones, queues, alerts, predictions } from "./data";
+import {
+  stadiums as defaultStadiums,
+  gates as defaultGates,
+  zones as defaultZones,
+  queues as defaultQueues,
+  alerts as defaultAlerts,
+  predictions,
+  fetchStadiums,
+  fetchMobilityData,
+  fetchAlerts,
+} from "./data";
 import {
   densityColor,
   statusColor,
@@ -49,20 +59,55 @@ export default function MobilityPage() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [clock, setClock] = useState(new Date());
 
+  const [stadiumsList, setStadiumsList] = useState(defaultStadiums);
+  const [gatesList, setGatesList] = useState(defaultGates);
+  const [zonesList, setZonesList] = useState(defaultZones);
+  const [queuesList, setQueuesList] = useState(defaultQueues);
+  const [alertsList, setAlertsList] = useState(defaultAlerts);
+  const [loading, setLoading] = useState(false);
+
   useEffect(() => {
     const interval = setInterval(() => setClock(new Date()), 1000);
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+      try {
+        const [stadiumsData, mobilityData, alertsData] = await Promise.all([
+          fetchStadiums(),
+          fetchMobilityData(selectedStadium),
+          fetchAlerts(selectedStadium),
+        ]);
+        if (cancelled) return;
+        setStadiumsList(stadiumsData);
+        setGatesList(mobilityData.gates);
+        setZonesList(mobilityData.zones);
+        setQueuesList(mobilityData.queues);
+        setAlertsList(alertsData);
+      } catch {
+        // keep fallback defaults
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    load();
+    return () => { cancelled = true; };
+  }, [selectedStadium]);
+
   const totalInside = 65310;
   const stadiumCapacity = 82500;
   const occupancyPct = Math.round((totalInside / stadiumCapacity) * 100);
 
-  const totalFlowIn = gates.reduce((s, g) => s + g.flowIn, 0);
-  const totalFlowOut = gates.reduce((s, g) => s + g.flowOut, 0);
+  const totalFlowIn = gatesList.reduce((s, g) => s + g.flowIn, 0);
+  const totalFlowOut = gatesList.reduce((s, g) => s + g.flowOut, 0);
   const netFlow = totalFlowIn - totalFlowOut;
 
-  const unacknowledgedAlerts = alerts.filter((a) => !a.acknowledged).length;
+  const unacknowledgedAlerts = alertsList.filter((a) => !a.acknowledged).length;
 
   return (
     <div className="space-y-6">
@@ -89,7 +134,7 @@ export default function MobilityPage() {
               <SelectValue placeholder="Select stadium" />
             </SelectTrigger>
             <SelectContent className="bg-surface border-border">
-              {stadiums.map((s) => (
+              {stadiumsList.map((s) => (
                 <SelectItem key={s.id} value={s.id}>
                   {s.name}
                 </SelectItem>
@@ -112,7 +157,7 @@ export default function MobilityPage() {
 
           <div className="flex items-center gap-2 bg-surface border border-border rounded-lg px-3 py-2">
             <RefreshCw
-              className={`w-4 h-4 text-text-muted ${autoRefresh ? "animate-spin" : ""}`}
+              className={`w-4 h-4 text-text-muted ${autoRefresh || loading ? "animate-spin" : ""}`}
               style={{ animationDuration: "3s" }}
             />
             <span className="text-sm text-text-secondary">Auto</span>
@@ -252,7 +297,7 @@ export default function MobilityPage() {
               Main Gates
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
-              {gates
+              {gatesList
                 .filter((g) => g.type === "Main")
                 .map((gate) => (
                   <div
@@ -318,7 +363,7 @@ export default function MobilityPage() {
               VIP &amp; Accessible Gates
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
-              {gates
+              {gatesList
                 .filter((g) => g.type !== "Main")
                 .map((gate) => (
                   <div
@@ -394,7 +439,7 @@ export default function MobilityPage() {
           <CardContent className="px-6 py-4 space-y-4">
             {/* Visual heatmap grid */}
             <div className="grid grid-cols-6 gap-1.5 mb-5">
-              {zones.map((z, i) => (
+              {zonesList.map((z, i) => (
                 <div
                   key={i}
                   className={`h-8 rounded ${heatmapCell(z.density)} border border-border/30`}
@@ -405,7 +450,7 @@ export default function MobilityPage() {
 
             <ScrollArea className="h-[440px] pr-2">
               <div className="space-y-2.5">
-                {zones.map((zone, i) => {
+                {zonesList.map((zone, i) => {
                   const pct = Math.round(
                     (zone.current / zone.capacity) * 100
                   );
@@ -469,7 +514,7 @@ export default function MobilityPage() {
           <CardContent className="px-6 py-4">
             <ScrollArea className="h-[510px] pr-2">
               <div className="space-y-3">
-                {queues.map((q, i) => (
+                {queuesList.map((q, i) => (
                   <div
                     key={i}
                     className="bg-surface-alt rounded-lg border border-border p-3"
@@ -569,7 +614,7 @@ export default function MobilityPage() {
           <CardContent className="px-6 py-4">
             <ScrollArea className="h-[320px] pr-2">
               <div className="space-y-2.5">
-                {alerts.map((a) => (
+                {alertsList.map((a) => (
                   <div
                     key={a.id}
                     className={`bg-surface-alt rounded-lg border border-border p-3 flex items-start gap-3 ${a.acknowledged ? "opacity-50" : ""}`}

@@ -1,4 +1,5 @@
 import type { VectorDocument } from '../types';
+import { loadKnowledgeDocuments } from './db-loaders';
 
 export const VENUE_METADATA_DOCUMENTS: Omit<VectorDocument, 'embedding'>[] = [
   {
@@ -42,3 +43,8 @@ export const VENUE_METADATA_DOCUMENTS: Omit<VectorDocument, 'embedding'>[] = [
     metadata: { type: 'venue', title: 'Emergency Exit Locations', tags: ['exits', 'emergency', 'evacuation', 'safety'], language: 'en', lastUpdated: '2026-06-01' },
   },
 ];
+
+export async function loadVenueMetadataDocuments(): Promise<Omit<VectorDocument, 'embedding'>[]> {
+  const dbDocs = await loadKnowledgeDocuments(['fan_services']);
+  return dbDocs.length > 0 ? dbDocs : VENUE_METADATA_DOCUMENTS;
+}

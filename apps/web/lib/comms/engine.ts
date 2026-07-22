@@ -5,6 +5,7 @@ import type {
   AlertSeverity,
   AudienceTarget,
   Language,
+  Recipient,
   SendLog,
   DeliveryStats,
   MessageTemplate,
@@ -105,11 +106,11 @@ export function createMessage(input: CreateMessageInput): CommsMessage {
   return msg;
 }
 
-export function previewMessage(
+export async function previewMessage(
   input: CreateMessageInput
-): { message: CommsMessage; recipients: ReturnType<typeof resolveRecipients>; preview: { subject: string; body: string } } {
+): Promise<{ message: CommsMessage; recipients: Recipient[]; preview: { subject: string; body: string } }> {
   const msg = createMessage(input);
-  const recipients = resolveRecipients(input.audience);
+  const recipients = await resolveRecipients(input.audience);
   messageStore.delete(msg.id);
   return {
     message: msg,
@@ -149,7 +150,7 @@ export async function sendMessage(
   if (msg.status !== 'approved') throw new Error(`Message not approved: ${messageId}`);
 
   const targetChannels = channels || [msg.channel];
-  const recipients = resolveRecipients(msg.audience);
+  const recipients = await resolveRecipients(msg.audience);
   const audienceHash = buildRateHash(msg.audience as unknown as Record<string, unknown>);
   const allResults: AdapterResult[] = [];
   const allLogs: SendLog[] = [];

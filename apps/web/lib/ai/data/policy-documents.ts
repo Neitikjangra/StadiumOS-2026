@@ -1,4 +1,5 @@
 import type { VectorDocument } from '../types';
+import { loadKnowledgeDocuments } from './db-loaders';
 
 export const POLICY_DOCUMENTS: Omit<VectorDocument, 'embedding'>[] = [
   {
@@ -42,3 +43,8 @@ export const POLICY_DOCUMENTS: Omit<VectorDocument, 'embedding'>[] = [
     metadata: { type: 'policy', title: 'Environmental Policy', tags: ['environment', 'sustainability', 'waste', 'recycling'], language: 'en', lastUpdated: '2026-06-01' },
   },
 ];
+
+export async function loadPolicyDocumentsFromDB(): Promise<Omit<VectorDocument, 'embedding'>[]> {
+  const dbDocs = await loadKnowledgeDocuments(['stadium_policy']);
+  return dbDocs.length > 0 ? dbDocs : POLICY_DOCUMENTS;
+}

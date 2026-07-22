@@ -2,14 +2,15 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { hasPermission } from '@/lib/rbac';
 import { knowledgeStore } from '../../../../lib/knowledge/store';
-import { SEED_DOCUMENTS } from '../../../../lib/knowledge/seed-data';
+import { SEED_DOCUMENTS, loadSeedDocumentsFromDB } from '../../../../lib/knowledge/seed-data';
 import type { DocumentSearchFilters, KnowledgeDocumentType, KnowledgeLanguage, DocumentStatus } from '../../../../lib/knowledge/types';
 
 let seeded = false;
 
-function ensureSeeded() {
+async function ensureSeeded() {
   if (!seeded) {
-    for (const doc of SEED_DOCUMENTS) {
+    const seedDocs = await loadSeedDocumentsFromDB();
+    for (const doc of seedDocs) {
       knowledgeStore.createDocument(doc);
     }
     const allDocs = knowledgeStore.listDocuments();
@@ -32,7 +33,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    ensureSeeded();
+    await ensureSeeded();
 
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('q') || undefined;
@@ -74,7 +75,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    ensureSeeded();
+    await ensureSeeded();
 
     const body = await request.json();
     const { title, content, type, language, stadiumId, tags, effectiveDate, expiryDate, summary, metadata } = body;

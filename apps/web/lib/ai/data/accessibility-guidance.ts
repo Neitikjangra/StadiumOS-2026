@@ -1,4 +1,5 @@
 import type { VectorDocument } from '../types';
+import { loadKnowledgeDocuments } from './db-loaders';
 
 export const ACCESSIBILITY_DOCUMENTS: Omit<VectorDocument, 'embedding'>[] = [
   {
@@ -42,3 +43,8 @@ export const ACCESSIBILITY_DOCUMENTS: Omit<VectorDocument, 'embedding'>[] = [
     metadata: { type: 'accessibility', title: 'Low-Sensory Options', tags: ['quiet', 'sensory', 'noise', 'headphones'], language: 'en', lastUpdated: '2026-06-01' },
   },
 ];
+
+export async function loadAccessibilityDocumentsFromDB(): Promise<Omit<VectorDocument, 'embedding'>[]> {
+  const dbDocs = await loadKnowledgeDocuments(['accessibility_guide']);
+  return dbDocs.length > 0 ? dbDocs : ACCESSIBILITY_DOCUMENTS;
+}

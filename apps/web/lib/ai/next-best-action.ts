@@ -108,7 +108,7 @@ export async function processNextBestAction(input: NextBestActionInput): Promise
   const startTime = Date.now();
   const queryId = generateQueryId();
 
-  const sources = retrieveRelevantSources(
+  const sources = await retrieveRelevantSources(
     `${input.staffRole} operations next action ${input.currentContext.matchPhase} incidents`,
     { topK: 3 }
   );

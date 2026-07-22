@@ -95,7 +95,7 @@ export async function processFanQuery(input: FanQueryInput): Promise<AIResponse>
   const startTime = Date.now();
   const queryId = generateQueryId();
 
-  const sources = retrieveRelevantSources(input.query, {
+  const sources = await retrieveRelevantSources(input.query, {
     topK: 5,
     language: input.language,
   });

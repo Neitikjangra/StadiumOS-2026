@@ -47,10 +47,15 @@ export function MessageComposer({ workflow, defaultChannel, defaultSeverity, ava
   const [sectionIds, setSectionIds] = useState<string[]>([]);
   const [languages, setLanguages] = useState<Language[]>(['en']);
   const [variables, setVariables] = useState<Record<string, string>>({});
+  const [zones, setZones] = useState<string[]>([]);
+  const [sections, setSections] = useState<string[]>([]);
+  const [stadiums, setStadiums] = useState<string[]>([]);
 
-  const zones = getMockZones();
-  const sections = getMockSections();
-  const stadiums = getMockStadiums();
+  useEffect(() => {
+    getMockZones().then(setZones);
+    getMockSections().then(setSections);
+    getMockStadiums().then(setStadiums);
+  }, []);
 
   useEffect(() => {
     fetch(`/api/comms/templates?workflow=${workflow}`)

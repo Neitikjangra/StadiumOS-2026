@@ -1,4 +1,5 @@
 import type { VectorDocument } from '../types';
+import { loadSOPDocuments } from './db-loaders';
 
 export const SOP_DOCUMENTS: Omit<VectorDocument, 'embedding'>[] = [
   {
@@ -62,3 +63,8 @@ export const SOP_DOCUMENTS: Omit<VectorDocument, 'embedding'>[] = [
     metadata: { type: 'sop', title: 'Post-Match Egress Management', tags: ['egress', 'exit', 'transport', 'traffic'], language: 'en', lastUpdated: '2026-06-01' },
   },
 ];
+
+export async function loadSOPDocumentsFromDB(): Promise<Omit<VectorDocument, 'embedding'>[]> {
+  const dbDocs = await loadSOPDocuments();
+  return dbDocs.length > 0 ? dbDocs : SOP_DOCUMENTS;
+}

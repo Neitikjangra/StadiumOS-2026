@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -54,7 +54,7 @@ import {
 import { SeedButton } from "@/components/SeedButton";
 import { toast } from "sonner";
 
-const stadiums = [
+const defaultStadiums = [
   { id: 1, name: "MetLife Stadium", city: "East Rutherford", country: "USA", capacity: 82500, status: "active", lat: 40.8135, lng: -74.0745, timezone: "America/New_York", address: "1 MetLife Stadium Dr, East Rutherford, NJ 07073" },
   { id: 2, name: "AT&T Stadium", city: "Arlington", country: "USA", capacity: 80000, status: "active", lat: 32.7473, lng: -97.0945, timezone: "America/Chicago", address: "1 AT&T Way, Arlington, TX 76011" },
   { id: 3, name: "Arrowhead Stadium", city: "Kansas City", country: "USA", capacity: 76416, status: "active", lat: 39.0489, lng: -94.4839, timezone: "America/Chicago", address: "1 Arrowhead Dr, Kansas City, MO 64129" },
@@ -73,7 +73,7 @@ const stadiums = [
   { id: 16, name: "Saputo Stadium", city: "Montreal", country: "Canada", capacity: 19619, status: "planned", lat: 45.5631, lng: -73.5528, timezone: "America/Toronto", address: "4750 Rue Sherbrooke E, Montréal, QC H1V 3S8" },
 ];
 
-const users = [
+const defaultUsers = [
   { id: 1, name: "Sarah Chen", email: "sarah.chen@fifa.org", role: "super_admin", stadium: "All", lastLogin: "2026-07-15T14:30:00Z", status: "active" },
   { id: 2, name: "Marcus Rodriguez", email: "marcus.r@fifa.org", role: "tournament_ops", stadium: "All", lastLogin: "2026-07-15T13:45:00Z", status: "active" },
   { id: 3, name: "Emily Watson", email: "emily.w@metlife.com", role: "stadium_manager", stadium: "MetLife Stadium", lastLogin: "2026-07-15T12:00:00Z", status: "active" },
@@ -88,7 +88,7 @@ const users = [
   { id: 12, name: "Carlos Lopez", email: "carlos.l@bbva.mx", role: "stadium_manager", stadium: "Estadio BBVA", lastLogin: "2026-07-13T15:00:00Z", status: "inactive" },
 ];
 
-const auditLogs = [
+const defaultAuditLogs = [
   { id: 1, timestamp: "2026-07-15T14:30:00Z", user: "Sarah Chen", role: "super_admin", action: "system_config_update", resource: "Global Settings", details: "Updated default timezone to UTC-5", ip: "192.168.1.100" },
   { id: 2, timestamp: "2026-07-15T14:25:00Z", user: "Marcus Rodriguez", role: "tournament_ops", action: "stadium_status_change", resource: "Gillette Stadium", details: "Status changed to maintenance", ip: "10.0.0.50" },
   { id: 3, timestamp: "2026-07-15T14:20:00Z", user: "Emily Watson", role: "stadium_manager", action: "capacity_update", resource: "MetLife Stadium", details: "VIP section capacity increased to 500", ip: "172.16.0.25" },
@@ -138,6 +138,10 @@ const roleDescriptions: Record<string, string> = {
   fan_user: "Basic read-only access for public information",
 };
 
+type StadiumRow = { id: string | number; name: string; city: string; country: string; capacity: number; status: string; lat: number; lng: number; timezone: string; address: string };
+type UserRow = { id: string | number; name: string; email: string; role: string; stadium: string; lastLogin: string; status: string };
+type AuditRow = { id: string | number; timestamp: string; user: string; role: string; action: string; resource: string; details: string; ip: string };
+
 export default function SettingsPage() {
   const { data: session } = useSession();
   const [activeTab, setActiveTab] = useState("general");
@@ -163,6 +167,83 @@ export default function SettingsPage() {
     { id: 1, url: "https://ops.fifa2026.internal/webhooks/matches", events: ["match.start", "match.end"], status: "active" },
     { id: 2, url: "https://alerts.fifa2026.internal/webhooks/incidents", events: ["incident.created", "alert.issued"], status: "active" },
   ]);
+
+  const [stadiums, setStadiums] = useState<StadiumRow[]>(defaultStadiums);
+  const [users, setUsers] = useState<UserRow[]>(defaultUsers);
+  const [auditLogs, setAuditLogs] = useState<AuditRow[]>(defaultAuditLogs);
+  const [loadingStadiums, setLoadingStadiums] = useState(false);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [loadingAudit, setLoadingAudit] = useState(false);
+
+  useEffect(() => {
+    setLoadingStadiums(true);
+    fetch("/api/stadiums?pageSize=100")
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.success && res.data?.items) {
+          const mapped = res.data.items.map((s: any) => ({
+            id: s.id,
+            name: s.name,
+            city: s.hostCity?.name ?? "",
+            country: s.hostCity?.hostCountry?.name ?? "",
+            capacity: s.capacity,
+            status: "active",
+            lat: s.latitude,
+            lng: s.longitude,
+            timezone: s.timezone,
+            address: s.address,
+          }));
+          setStadiums(mapped);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingStadiums(false));
+  }, []);
+
+  useEffect(() => {
+    setLoadingUsers(true);
+    fetch("/api/users?pageSize=100")
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.success && res.data?.items) {
+          const mapped = res.data.items.map((u: any) => ({
+            id: u.id,
+            name: u.name,
+            email: u.email,
+            role: u.role,
+            stadium: u.stadium?.name ?? "All",
+            lastLogin: u.lastLoginAt ?? "",
+            status: u.isDeleted ? "inactive" : "active",
+          }));
+          setUsers(mapped);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingUsers(false));
+  }, []);
+
+  useEffect(() => {
+    setLoadingAudit(true);
+    fetch("/api/audit?pageSize=50")
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.success && res.data?.items) {
+          const mapped = res.data.items.map((a: any) => ({
+            id: a.id,
+            timestamp: a.timestamp,
+            user: a.user?.name ?? a.userId,
+            role: a.user?.role ?? "",
+            action: a.action,
+            resource: a.resource,
+            details: typeof a.details === "string" ? a.details : (a.details?.message ?? JSON.stringify(a.details ?? "")),
+            ip: a.ipAddress ?? "",
+          }));
+          setAuditLogs(mapped);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingAudit(false));
+  }, []);
 
   const filteredLogs = auditLogs.filter((log) => {
     const matchesSearch = log.details.toLowerCase().includes(searchQuery.toLowerCase()) || log.user.toLowerCase().includes(searchQuery.toLowerCase());
