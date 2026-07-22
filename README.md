@@ -153,6 +153,19 @@ Log out: Click user avatar in header → Log out, or sidebar logout button.
 
 ---
 
+##Images
+
+
+
+<img width="1917" height="928" alt="Screenshot 2026-07-22 232611" src="https://github.com/user-attachments/assets/d43dbb20-4f6e-4099-bb79-e9673a6ff31c" />
+<img width="1917" height="927" alt="Screenshot 2026-07-22 232455" src="https://github.com/user-attachments/assets/536b47ee-5e3a-46e0-a7fd-0bff4c6b3378" />
+<img width="1917" height="928" alt="Screenshot 2026-07-22 232356" src="https://github.com/user-attachments/assets/52ddfe6f-980b-4b88-a363-f25b20dbb842" />
+<img width="1917" height="927" alt="Screenshot 2026-07-22 232743" src="https://github.com/user-attachments/assets/001c251c-5e95-47e4-9f7f-fb364cedec21" />
+
+
+
+---
+
 ## Further Documentation
 
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — System design, data flow, and key decisions
