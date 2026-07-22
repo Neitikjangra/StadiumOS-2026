@@ -109,7 +109,7 @@ All data is served from a live SQLite database via Prisma ORM. **Zero mock data,
 ## Quick Start
 
 ```bash
-git clone <repo-url> && cd StadiumOS2026/apps/web
+git clone https://github.com/Neitikjangra/StadiumOS-2026.git && cd StadiumOS2026/apps/web
 npm install
 npx prisma generate && npx prisma db push
 npx tsx prisma/seed.ts
