@@ -121,6 +121,16 @@ Login: `admin@stadiumos.com` / `password123`
 Sign up: Visit `/sign-up` to create a new account.
 Log out: Click user avatar in header → Log out, or sidebar logout button.
 
+### Vercel Deployment
+
+1. Push to a public GitHub repo on the `main` branch.
+2. Import the repo in [vercel.com/new](https://vercel.com/new).
+3. In **Project Settings**, set **Root Directory** to `apps/web`.
+4. Set **Install Command** to `cd ../.. && npm install`.
+5. Set **Build Command** to `cd ../.. && npx turbo run build --filter=@stadiumos/web`.
+6. Add environment variables: `AUTH_SECRET`, `NEXTAUTH_SECRET`, `DATABASE_URL` (use Vercel Postgres or SQLite with a volume), `REDIS_URL` (optional).
+7. Deploy.
+
 ### Available Roles
 
 | Role | Access |
