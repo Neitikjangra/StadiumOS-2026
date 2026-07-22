@@ -2,8 +2,15 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { getToken } from "next-auth/jwt";
 import bcrypt from "bcryptjs";
-import type { UserRole } from "@prisma/client";
 import type { NextRequest } from "next/server";
+
+const AUTH_SECRET_FALLBACK = "stadiumos-2026-fallback-secret-do-not-use-in-production";
+
+function getSecret(): string {
+  return process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || AUTH_SECRET_FALLBACK;
+}
+
+type UserRole = "super_admin" | "tournament_ops" | "stadium_manager" | "security_lead" | "mobility_lead" | "vendor_manager" | "volunteer_lead" | "support_agent" | "fan_user";
 
 const demoUsers: Record<
   string,
@@ -24,8 +31,12 @@ const demoUsers: Record<
 };
 
 async function getPrisma() {
-  const { prisma } = await import("@/lib/prisma");
-  return prisma;
+  try {
+    const { prisma } = await import("@/lib/prisma");
+    return prisma;
+  } catch {
+    return null;
+  }
 }
 
 export const {
@@ -57,6 +68,8 @@ export const {
 
         try {
           const prisma = await getPrisma();
+          if (!prisma) return null;
+
           const user = await prisma.staffUser.findUnique({
             where: { email: credentials.email as string },
           });
@@ -108,7 +121,7 @@ export const {
       return session;
     },
   },
-  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
+  secret: getSecret(),
   trustHost: true,
   pages: {
     signIn: "/login",
@@ -131,13 +144,11 @@ export const {
 
 /**
  * Get auth session from a Route Handler request using getToken().
- * This avoids the issue where auth() doesn't propagate custom JWT fields
- * (role, stadiumId, language) to the session in Route Handler context.
  */
 export async function getAuthFromRequest(request: NextRequest) {
   const token = await getToken({
     req: request,
-  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "stadiumos-2026-fallback-secret-do-not-use-in-production",
+    secret: getSecret(),
   });
 
   if (!token) return null;
