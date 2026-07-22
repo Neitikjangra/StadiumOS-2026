@@ -7,7 +7,7 @@ const signupSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
   password: z.string().min(8, "Password must be at least 8 characters"),
-  role: z.enum(["stadium_manager", "security_lead", "mobility_lead", "staff"]).default("staff"),
+  role: z.enum(["stadium_manager", "security_lead", "mobility_lead", "fan_user"]).default("fan_user"),
   stadiumId: z.string().optional(),
 });
 

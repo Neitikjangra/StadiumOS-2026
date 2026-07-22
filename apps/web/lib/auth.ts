@@ -137,7 +137,7 @@ export const {
 export async function getAuthFromRequest(request: NextRequest) {
   const token = await getToken({
     req: request,
-    secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
+  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "stadiumos-2026-fallback-secret-do-not-use-in-production",
   });
 
   if (!token) return null;
