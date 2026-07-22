@@ -14,6 +14,7 @@ const nextConfig = {
   output: "standalone",
   outputFileTracingRoot: path.join(__dirname, "../../"),
   transpilePackages: ["@stadiumos/ui", "@stadiumos/types"],
+  serverExternalPackages: ["@prisma/client", "bcryptjs"],
   experimental: {
     serverActions: {
       bodySizeLimit: "2mb",

@@ -1,7 +1,6 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { getToken } from "next-auth/jwt";
-import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import type { UserRole } from "@prisma/client";
 import type { NextRequest } from "next/server";
@@ -23,6 +22,11 @@ const demoUsers: Record<
     stadiumId: "metlife",
   },
 };
+
+async function getPrisma() {
+  const { prisma } = await import("@/lib/prisma");
+  return prisma;
+}
 
 export const {
   handlers,
@@ -52,6 +56,7 @@ export const {
         }
 
         try {
+          const prisma = await getPrisma();
           const user = await prisma.staffUser.findUnique({
             where: { email: credentials.email as string },
           });
@@ -118,7 +123,7 @@ export const {
         httpOnly: true,
         sameSite: "lax",
         path: "/",
-        secure: false,
+        secure: process.env.NODE_ENV === "production",
       },
     },
   },
