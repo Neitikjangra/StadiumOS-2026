@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [{ "name": "next" }],
+    "paths": {
+      "@/*": ["./apps/web/*"],
+      "@stadiumos/ui": ["./packages/ui/src"],
+      "@stadiumos/types": ["./packages/types/src"],
+      "@stadiumos/config": ["./packages/config"]
+    }
+  },
+  "exclude": ["node_modules"]
+}

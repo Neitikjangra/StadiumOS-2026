@@ -1,0 +1,1177 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// ──────────────────────────────────────────────────────────────
+// ENUMS
+// ──────────────────────────────────────────────────────────────
+
+enum UserRole {
+  super_admin
+  tournament_ops
+  stadium_manager
+  security_lead
+  mobility_lead
+  vendor_manager
+  volunteer_lead
+  support_agent
+  fan_user
+}
+
+enum TournamentStatus {
+  upcoming
+  active
+  completed
+}
+
+enum MatchStatus {
+  scheduled
+  in_progress
+  half_time
+  second_half
+  extra_time
+  penalties
+  full_time
+  postponed
+  cancelled
+}
+
+enum MatchStage {
+  group
+  round_of_32
+  round_of_16
+  quarter_final
+  semi_final
+  third_place
+  final
+}
+
+enum GateType {
+  entrance
+  exit
+  vip
+  accessible
+  emergency
+}
+
+enum GateStatus {
+  open
+  restricted
+  closed
+  emergency_only
+}
+
+enum ZoneType {
+  pitch
+  stands_lower
+  stands_upper
+  concourse
+  vip_lounge
+  press_box
+  operations
+  medical
+  parking
+  fan_zone
+}
+
+enum IncidentType {
+  medical
+  security
+  crowd_control
+  infrastructure
+  weather
+  fire
+  vip
+  fan_behavior
+  equipment
+  communication
+  accessibility
+  vendor
+}
+
+enum IncidentSeverity {
+  critical
+  high
+  medium
+  low
+}
+
+enum IncidentStatus {
+  reported
+  acknowledged
+  in_progress
+  escalated
+  resolved
+  closed
+}
+
+enum ResponseTeam {
+  security
+  medical
+  operations
+  fire_safety
+  crowd_management
+  vip_services
+  technical
+  communications
+}
+
+enum AlertType {
+  crowd_surge
+  gate_congestion
+  capacity_warning
+  queue_threshold
+  evacuation_advisory
+  accessibility_concern
+  weather_impact
+  securitythreat
+  equipment_failure
+}
+
+enum AlertSeverity {
+  info
+  warning
+  critical
+}
+
+enum NotificationChannel {
+  push
+  sms
+  email
+  in_app
+  digital_signage
+  public_address
+}
+
+enum NotificationPriority {
+  critical
+  high
+  normal
+  low
+}
+
+enum NotificationStatus {
+  draft
+  scheduled
+  sending
+  sent
+  failed
+  cancelled
+}
+
+enum QueueType {
+  entry_gate
+  security_check
+  food_beverage
+  restroom
+  merchandise
+  ticket_office
+  will_call
+  accessible_entry
+}
+
+enum MobilityStatus {
+  normal
+  elevated
+  congested
+  critical
+  evacuation
+}
+
+enum Language {
+  en
+  es
+  fr
+  pt
+  ar
+  zh
+  de
+  ja
+  ko
+  it
+}
+
+enum AccessibilityNeedType {
+  wheelchair
+  visual_impairment
+  hearing_impairment
+  mobility_aid
+  service_animal
+  companion_seat
+  sensory_room
+  hearing_loop
+  large_print
+  braille
+}
+
+enum KnowledgeCategory {
+  emergency_procedures
+  stadium_policy
+  fan_services
+  security_protocols
+  accessibility_guide
+  vendor_operations
+  match_day_operations
+  weather_contingency
+  evacuation_plan
+  faq
+}
+
+enum VolunteerShiftStatus {
+  scheduled
+  checked_in
+  on_duty
+  on_break
+  completed
+  no_show
+}
+
+enum DevicePlatform {
+  ios
+  android
+  web
+  signage
+}
+
+enum AuditAction {
+  incident_create
+  incident_update
+  incident_escalate
+  incident_resolve
+  incident_close
+  notification_broadcast
+  notification_cancel
+  sop_create
+  sop_update
+  sop_publish
+  sop_archive
+  gate_status_change
+  gate_capacity_override
+  match_status_update
+  match_score_update
+  alert_acknowledge
+  alert_escalate
+  user_login
+  user_logout
+  user_create
+  user_role_change
+  settings_update
+  mobility_override
+  evacuation_initiate
+  routing_staged_exit
+  routing_simulation
+}
+
+// ──────────────────────────────────────────────────────────────
+// TOURNAMENT STRUCTURE
+// ──────────────────────────────────────────────────────────────
+
+model Tournament {
+  id        String   @id @default(cuid())
+  name      String
+  year      Int
+  startDate DateTime
+  endDate   DateTime
+  status    TournamentStatus @default(upcoming)
+
+  hostCountries HostCountry[]
+  matches       Match[]
+  stadiums      Stadium[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model HostCountry {
+  id          String @id @default(cuid())
+  tournamentId String
+  name        String
+  code        String
+  flag        String
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id])
+  cities     HostCity[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tournamentId, code])
+}
+
+model HostCity {
+  id            String @id @default(cuid())
+  hostCountryId String
+  name          String
+  latitude      Float
+  longitude     Float
+
+  hostCountry HostCountry @relation(fields: [hostCountryId], references: [id])
+  stadiums    Stadium[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ──────────────────────────────────────────────────────────────
+// STADIUM INFRASTRUCTURE
+// ──────────────────────────────────────────────────────────────
+
+model Stadium {
+  id          String @id @default(cuid())
+  hostCityId  String
+  tournamentId String
+  name        String
+  address     String
+  capacity    Int
+  latitude    Float
+  longitude   Float
+  timezone    String   @default("America/New_York")
+  imageUrl    String?
+  isDeleted   Boolean  @default(false)
+  deletedAt   DateTime?
+
+  hostCity   HostCity   @relation(fields: [hostCityId], references: [id])
+  tournament Tournament @relation(fields: [tournamentId], references: [id])
+
+  gates              Gate[]
+  zones              Zone[]
+  concessions        Concession[]
+  restrooms          Restroom[]
+  parkingLots        ParkingLot[]
+  transitHubs        TransitHub[]
+  crowdSensors       CrowdSensor[]
+  matches            Match[]
+  incidents          Incident[]
+  alerts             Alert[]
+  notifications      NotificationCampaign[]
+  accessibilityServices AccessibilityService[]
+  volunteerShifts    VolunteerShift[]
+  staffUsers         StaffUser[]
+  queueSnapshots     QueueSnapshot[]
+  deviceHeartbeats   DeviceHeartbeat[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([hostCityId])
+  @@index([tournamentId])
+}
+
+model Gate {
+  id        String  @id @default(cuid())
+  stadiumId String
+  name      String
+  type      GateType @default(entrance)
+  latitude  Float
+  longitude Float
+  capacity  Int
+  status    GateStatus @default(open)
+
+  stadium        Stadium         @relation(fields: [stadiumId], references: [id])
+  queueSnapshots QueueSnapshot[]
+  alerts         Alert[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([stadiumId])
+  @@index([status])
+}
+
+model Zone {
+  id        String   @id @default(cuid())
+  stadiumId String
+  name      String
+  type      ZoneType
+  level     Int      @default(1)
+  capacity  Int
+
+  stadium        Stadium         @relation(fields: [stadiumId], references: [id])
+  incidents      Incident[]
+  queueSnapshots QueueSnapshot[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([stadiumId])
+  @@index([type])
+}
+
+model Concession {
+  id        String  @id @default(cuid())
+  stadiumId String
+  name      String
+  type      String
+  level     Int?
+  section   String?
+  isOpen    Boolean @default(true)
+
+  stadium Stadium @relation(fields: [stadiumId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([stadiumId])
+}
+
+model Restroom {
+  id        String  @id @default(cuid())
+  stadiumId String
+  name      String
+  level     Int?
+  section   String?
+  accessible Boolean @default(false)
+  status    String  @default("operational")
+
+  stadium Stadium @relation(fields: [stadiumId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([stadiumId])
+}
+
+model ParkingLot {
+  id        String  @id @default(cuid())
+  stadiumId String
+  name      String
+  capacity  Int
+  latitude  Float
+  longitude Float
+  status    String  @default("open")
+
+  stadium Stadium @relation(fields: [stadiumId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([stadiumId])
+}
+
+model TransitHub {
+  id        String  @id @default(cuid())
+  stadiumId String
+  name      String
+  type      String
+  latitude  Float
+  longitude Float
+  capacity  Int
+
+  stadium Stadium @relation(fields: [stadiumId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([stadiumId])
+}
+
+// ──────────────────────────────────────────────────────────────
+// MATCHES
+// ──────────────────────────────────────────────────────────────
+
+model Match {
+  id           String      @id @default(cuid())
+  stadiumId    String
+  tournamentId String?
+  externalId   String?     @unique
+  homeTeamCode String
+  homeTeamName String
+  homeTeamFlag String
+  awayTeamCode String
+  awayTeamName String
+  awayTeamFlag String
+  homeScore    Int?
+  awayScore    Int?
+  status       MatchStatus @default(scheduled)
+  stage        MatchStage  @default(group)
+  groupCode    String?
+  round        String?
+  kickOff      DateTime
+  halfTime     DateTime?
+  fullTime     DateTime?
+  attendance   Int?
+  venue        String?
+
+  stadium       Stadium      @relation(fields: [stadiumId], references: [id])
+  tournament    Tournament?  @relation(fields: [tournamentId], references: [id])
+  incidents     Incident[]
+  notifications NotificationCampaign[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([stadiumId])
+  @@index([status])
+  @@index([kickOff])
+  @@index([stage])
+}
+
+// ──────────────────────────────────────────────────────────────
+// CROWD & MOBILITY
+// ──────────────────────────────────────────────────────────────
+
+model CrowdSensor {
+  id        String   @id @default(cuid())
+  stadiumId String
+  zoneId    String?
+  name      String
+  type      String
+  latitude  Float
+  longitude Float
+  isActive  Boolean  @default(true)
+
+  stadium Stadium @relation(fields: [stadiumId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([stadiumId])
+}
+
+model QueueSnapshot {
+  id        String   @id @default(cuid())
+  stadiumId String
+  gateId    String?
+  zoneId    String?
+  queueType QueueType
+  length    Int
+  waitTime  Int
+  status    MobilityStatus @default(normal)
+  timestamp DateTime       @default(now())
+
+  stadium Stadium @relation(fields: [stadiumId], references: [id])
+  gate    Gate?   @relation(fields: [gateId], references: [id])
+  zone    Zone?   @relation(fields: [zoneId], references: [id])
+
+  @@index([stadiumId, timestamp])
+  @@index([gateId])
+}
+
+// ──────────────────────────────────────────────────────────────
+// INCIDENTS & ALERTS
+// ──────────────────────────────────────────────────────────────
+
+model Incident {
+  id              String           @id @default(cuid())
+  stadiumId       String
+  matchId         String?
+  zoneId          String?
+  type            IncidentType
+  severity        IncidentSeverity
+  status          IncidentStatus   @default(reported)
+  title           String
+  description     String
+  locationDesc    String
+  locationLat     Float?
+  locationLng     Float?
+  assignedTeam    ResponseTeam?
+  escalationLevel Int              @default(0)
+  isDeleted       Boolean          @default(false)
+  deletedAt       DateTime?
+
+  stadium       Stadium          @relation(fields: [stadiumId], references: [id])
+  match         Match?           @relation(fields: [matchId], references: [id])
+  zone          Zone?            @relation(fields: [zoneId], references: [id])
+  reportedById  String
+  reportedBy    StaffUser        @relation("ReportedIncidents", fields: [reportedById], references: [id])
+  assignedToId  String?
+  assignedTo    StaffUser?       @relation("AssignedIncidents", fields: [assignedToId], references: [id])
+  resolvedById  String?
+  resolvedBy    StaffUser?       @relation("ResolvedIncidents", fields: [resolvedById], references: [id])
+
+  updates       IncidentUpdate[]
+  alerts        Alert[]
+
+  reportedAt DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  resolvedAt DateTime?
+
+  @@index([stadiumId])
+  @@index([matchId])
+  @@index([status])
+  @@index([severity])
+  @@index([type])
+  @@index([reportedAt])
+}
+
+model IncidentUpdate {
+  id         String   @id @default(cuid())
+  incidentId String
+  userId     String
+  content    String
+  oldStatus  IncidentStatus?
+  newStatus  IncidentStatus?
+  timestamp  DateTime @default(now())
+
+  incident Incident @relation(fields: [incidentId], references: [id])
+
+  @@index([incidentId])
+}
+
+model Alert {
+  id          String        @id @default(cuid())
+  stadiumId   String
+  incidentId  String?
+  gateId      String?
+  type        AlertType
+  severity    AlertSeverity
+  message     String
+  isDeleted   Boolean       @default(false)
+  deletedAt   DateTime?
+
+  stadium   Stadium   @relation(fields: [stadiumId], references: [id])
+  incident  Incident? @relation(fields: [incidentId], references: [id])
+  gate      Gate?     @relation(fields: [gateId], references: [id])
+
+  createdAt       DateTime  @default(now())
+  acknowledgedAt  DateTime?
+  acknowledgedById String?
+
+  @@index([stadiumId])
+  @@index([severity])
+  @@index([type])
+  @@index([createdAt])
+}
+
+// ──────────────────────────────────────────────────────────────
+// NOTIFICATIONS
+// ──────────────────────────────────────────────────────────────
+
+model NotificationCampaign {
+  id              String               @id @default(cuid())
+  stadiumId       String?
+  matchId         String?
+  type            String
+  channel         String @default("[]")
+  priority        NotificationPriority  @default(normal)
+  title           String
+  body            String
+  richContent     Json?
+  targetAudience  Json
+  status          NotificationStatus   @default(draft)
+  isDeleted       Boolean              @default(false)
+  deletedAt       DateTime?
+
+  stadium Stadium? @relation(fields: [stadiumId], references: [id])
+  match   Match?   @relation(fields: [matchId], references: [id])
+
+  createdBy   String
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([stadiumId])
+  @@index([status])
+  @@index([type])
+  @@index([createdAt])
+}
+
+// ──────────────────────────────────────────────────────────────
+// KNOWLEDGE & AI
+// ──────────────────────────────────────────────────────────────
+
+model KnowledgeDocument {
+  id        String            @id @default(cuid())
+  title     String
+  content   String
+  category  KnowledgeCategory
+  tags      String  @default("[]")
+  language  Language          @default(en)
+  stadiumId String?
+  status    String            @default("published")
+  isDeleted Boolean           @default(false)
+  deletedAt DateTime?
+
+  createdBy String
+  viewCount    Int @default(0)
+  helpfulCount Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+  @@index([language])
+  @@index([status])
+}
+
+model SOPRunbook {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  content     String
+  version     Int      @default(1)
+  status      String   @default("draft")
+  stadiumId   String?
+  tags        String  @default("[]")
+  isDeleted   Boolean  @default(false)
+  deletedAt   DateTime?
+
+  createdBy   String
+  publishedBy String?
+  publishedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([stadiumId])
+}
+
+model FAQ {
+  id        String  @id @default(cuid())
+  question  String
+  answer    String
+  category  String
+  language  Language @default(en)
+  stadiumId String?
+  sortOrder Int     @default(0)
+  isDeleted Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+  @@index([language])
+}
+
+model TranslationKey {
+  key         String   @id
+  language    Language
+  value       String
+  context     String?
+  updatedAt   DateTime @updatedAt
+
+  @@unique([key, language])
+}
+
+// ──────────────────────────────────────────────────────────────
+// ACCESSIBILITY
+// ──────────────────────────────────────────────────────────────
+
+model AccessibilityService {
+  id        String               @id @default(cuid())
+  stadiumId String
+  type      AccessibilityNeedType
+  name      String
+  description String
+  location  String
+  isAvailable Boolean            @default(true)
+
+  stadium Stadium @relation(fields: [stadiumId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([stadiumId])
+  @@index([type])
+}
+
+// ──────────────────────────────────────────────────────────────
+// STAFF & VOLUNTEERS
+// ──────────────────────────────────────────────────────────────
+
+model StaffUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         UserRole @default(fan_user)
+  stadiumId    String?
+  avatarUrl    String?
+  language     Language @default(en)
+  isDeleted    Boolean  @default(false)
+  deletedAt    DateTime?
+
+  stadium Stadium? @relation(fields: [stadiumId], references: [id])
+
+  reportedIncidents  Incident[] @relation("ReportedIncidents")
+  assignedIncidents  Incident[] @relation("AssignedIncidents")
+  resolvedIncidents  Incident[] @relation("ResolvedIncidents")
+  auditLogs          AuditLog[]
+  volunteerShifts    VolunteerShift[]
+  deviceHeartbeats   DeviceHeartbeat[]
+  aiConversations    AIConversation[]
+  recommendationLogs RecommendationLog[]
+
+  lastLoginAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([role])
+  @@index([stadiumId])
+}
+
+model VolunteerShift {
+  id          String              @id @default(cuid())
+  staffUserId String
+  stadiumId   String
+  date        DateTime
+  startTime   DateTime
+  endTime     DateTime
+  role        String
+  zone        String?
+  gateId      String?
+  status      VolunteerShiftStatus @default(scheduled)
+  checkedInAt DateTime?
+  checkedOutAt DateTime?
+
+  staffUser StaffUser @relation(fields: [staffUserId], references: [id])
+  stadium   Stadium   @relation(fields: [stadiumId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([staffUserId])
+  @@index([stadiumId, date])
+  @@index([status])
+}
+
+// ──────────────────────────────────────────────────────────────
+// FANS & TICKETS
+// ──────────────────────────────────────────────────────────────
+
+model FanUser {
+  id           String  @id @default(cuid())
+  email        String  @unique
+  name         String
+  phone        String?
+  language     Language @default(en)
+  isDeleted    Boolean @default(false)
+  deletedAt    DateTime?
+
+  tickets      TicketProfile[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+}
+
+model TicketProfile {
+  id          String  @id @default(cuid())
+  fanUserId   String
+  matchId     String?
+  barcode     String  @unique
+  gate        String
+  section     String
+  row         String
+  seat        String
+  ticketType  String
+  isRedeemed  Boolean @default(false)
+  redeemedAt  DateTime?
+
+  fanUser FanUser @relation(fields: [fanUserId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([fanUserId])
+  @@index([barcode])
+  @@index([matchId])
+}
+
+// ──────────────────────────────────────────────────────────────
+// DEVICE & AI
+// ──────────────────────────────────────────────────────────────
+
+model DeviceHeartbeat {
+  id         String         @id @default(cuid())
+  staffUserId String
+  stadiumId  String
+  platform   DevicePlatform
+  deviceId   String
+  ip         String?
+  lastSeen   DateTime       @default(now())
+
+  staffUser StaffUser @relation(fields: [staffUserId], references: [id])
+  stadium   Stadium   @relation(fields: [stadiumId], references: [id])
+
+  @@unique([staffUserId, deviceId])
+  @@index([stadiumId])
+  @@index([lastSeen])
+}
+
+model AIConversation {
+  id          String @id @default(cuid())
+  staffUserId String
+  context     Json?
+
+  staffUser StaffUser        @relation(fields: [staffUserId], references: [id])
+  messages  AIMessage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([staffUserId])
+}
+
+model AIMessage {
+  id             String @id @default(cuid())
+  conversationId String
+  role           String
+  content        String
+  sources        Json?
+  tokenCount     Int?
+
+  conversation AIConversation @relation(fields: [conversationId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([conversationId])
+}
+
+model RecommendationLog {
+  id          String @id @default(cuid())
+  staffUserId String
+  type        String
+  input       Json
+  output      Json
+  confidence  Float
+  wasAccepted Boolean?
+
+  staffUser StaffUser @relation(fields: [staffUserId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([staffUserId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+// ──────────────────────────────────────────────────────────────
+// AUDIT
+// ──────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  userId     String
+  action     AuditAction
+  resource   String
+  resourceId String
+  stadiumId  String?
+  details    Json?
+  ipAddress  String?
+  userAgent  String?
+  timestamp  DateTime    @default(now())
+
+  user StaffUser @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([action])
+  @@index([resource, resourceId])
+  @@index([stadiumId])
+  @@index([timestamp])
+}
+
+// ──────────────────────────────────────────────────────────────
+// EVENT INGESTION ENUMS
+// ──────────────────────────────────────────────────────────────
+
+enum IngestionChannel {
+  crowd_density
+  gate_throughput
+  queue_length
+  incident_report
+  transit_feed
+  weather_feed
+  device_heartbeat
+  manual_update
+  fan_help_request
+}
+
+enum EventType {
+  crowd_density_update
+  gate_throughput_update
+  queue_length_update
+  incident_created
+  incident_updated
+  transit_update
+  weather_update
+  device_online
+  device_offline
+  manual_operator_update
+  fan_help_request
+  anomaly_detected
+  threshold_breached
+}
+
+enum AnomalyType {
+  crowd_surge
+  crowd_drop
+  gate_congestion
+  unusual_wait_time
+  device_silence
+  capacity_breach
+  rapid_queue_growth
+  weather_deterioration
+  transit_disruption
+}
+
+enum DeviceStatus {
+  online
+  offline
+  degraded
+  maintenance
+}
+
+enum EventProcessingStatus {
+  pending
+  processing
+  completed
+  failed
+  dead_letter
+}
+
+// ──────────────────────────────────────────────────────────────
+// EVENT INGESTION LAYER
+// ──────────────────────────────────────────────────────────────
+
+model ThresholdConfig {
+  id          String   @id @default(cuid())
+  stadiumId   String
+  zoneId      String?
+  name        String
+  metric      String
+  warning     Float
+  critical    Float
+  unit        String   @default("")
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([stadiumId, zoneId, metric])
+  @@index([stadiumId])
+}
+
+model RawEvent {
+  id              String   @id @default(cuid())
+  channel         IngestionChannel
+  eventType       EventType
+  stadiumId       String
+  sourceId        String
+  idempotencyKey  String   @unique
+  payload         Json
+  normalized      Json?
+  status          EventProcessingStatus @default(pending)
+  attempts        Int      @default(0)
+  maxAttempts     Int      @default(3)
+  lastError       String?
+  processedAt     DateTime?
+  createdAt       DateTime @default(now())
+
+  anomalies       AnomalyEvent[]
+  deadLetters     DeadLetter[]
+
+  @@index([channel, createdAt])
+  @@index([stadiumId, createdAt])
+  @@index([status])
+  @@index([idempotencyKey])
+  @@index([createdAt])
+}
+
+model DeadLetter {
+  id          String   @id @default(cuid())
+  eventId     String
+  channel     IngestionChannel
+  payload     Json
+  error       String
+  attempts    Int
+  resolved    Boolean  @default(false)
+  resolvedAt  DateTime?
+  resolvedBy  String?
+  createdAt   DateTime @default(now())
+
+  event       RawEvent @relation(fields: [eventId], references: [id])
+
+  @@index([channel, resolved])
+  @@index([createdAt])
+}
+
+model AnomalyEvent {
+  id          String   @id @default(cuid())
+  eventId     String?
+  stadiumId   String
+  zoneId      String?
+  gateId      String?
+  type        AnomalyType
+  severity    AlertSeverity
+  metric      String
+  value       Float
+  threshold   Float
+  message     String
+  acknowledged Boolean  @default(false)
+  acknowledgedAt DateTime?
+  acknowledgedBy String?
+  createdAt   DateTime @default(now())
+
+  event       RawEvent? @relation(fields: [eventId], references: [id])
+
+  @@index([stadiumId, type])
+  @@index([createdAt])
+  @@index([acknowledged])
+}
+
+model DeviceStatusRecord {
+  id          String       @id @default(cuid())
+  deviceId    String
+  stadiumId   String
+  platform    String
+  status      DeviceStatus @default(online)
+  lastSeen    DateTime     @default(now())
+  metadata    Json?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@unique([deviceId, stadiumId])
+  @@index([stadiumId, status])
+  @@index([lastSeen])
+}
+
+model TransitUpdate {
+  id          String   @id @default(cuid())
+  stadiumId   String
+  hubId       String?
+  route       String
+  type        String
+  status      String
+  delay       Int?
+  message     String?
+  timestamp   DateTime @default(now())
+
+  @@index([stadiumId, timestamp])
+}
+
+model WeatherSnapshot {
+  id          String   @id @default(cuid())
+  stadiumId   String
+  temperature Float
+  humidity    Float
+  windSpeed   Float
+  conditions  String
+  alerts      String  @default("[]")
+  uvIndex     Int?
+  timestamp   DateTime @default(now())
+
+  @@index([stadiumId, timestamp])
+}
+
+model SimulatorRun {
+  id          String   @id @default(cuid())
+  stadiumId   String
+  scenario    String
+  status      String   @default("running")
+  eventsPerSec Float
+  totalEvents Int      @default(0)
+  startedAt   DateTime @default(now())
+  stoppedAt   DateTime?
+  config      Json?
+
+  @@index([stadiumId])
+  @@index([status])
+}

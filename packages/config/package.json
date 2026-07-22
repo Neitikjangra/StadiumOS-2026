@@ -1,0 +1,9 @@
+{
+  "name": "@stadiumos/config",
+  "version": "1.0.0",
+  "private": true,
+  "main": "tailwind.js",
+  "scripts": {
+    "lint": "echo 'lint ok'"
+  }
+}
