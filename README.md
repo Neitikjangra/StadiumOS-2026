@@ -186,4 +186,4 @@ Log out: Click user avatar in header → Log out, or sidebar logout button.
 
 ## License
 
-Internal project — FIFA World Cup 2026 Stadium Operations Platform.
+FIFA World Cup 2026 Stadium Operations Platform.
