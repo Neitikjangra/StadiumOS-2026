@@ -8,7 +8,11 @@ const securityHeaders = [
   { key: "Content-Security-Policy", value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss:; img-src 'self' data: https:; font-src 'self' 'unsafe-inline';" },
 ];
 
+const path = require("path");
+
 const nextConfig = {
+  output: "standalone",
+  outputFileTracingRoot: path.join(__dirname, "../../"),
   transpilePackages: ["@stadiumos/ui", "@stadiumos/types"],
   experimental: {
     serverActions: {
