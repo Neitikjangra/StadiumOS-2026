@@ -153,7 +153,7 @@ Log out: Click user avatar in header → Log out, or sidebar logout button.
 
 ---
 
-##Images
+## Images
 
 
 
