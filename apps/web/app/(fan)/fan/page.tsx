@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -45,24 +45,105 @@ const quickActions = [
   { icon: HelpCircle, label: "Get Help", color: "text-danger" },
 ];
 
-const nearbyFacilities = [
-  { type: "Food", name: "Burger King", waitTime: "5 min", distance: "20m" },
-  { type: "Drink", name: "Coca-Cola Stand", waitTime: "2 min", distance: "15m" },
-  { type: "Restroom", name: "Section A3 Restrooms", waitTime: "0 min", distance: "10m" },
-  { type: "Merch", name: "FIFA Store", waitTime: "8 min", distance: "40m" },
-];
+interface MatchData {
+  id: string;
+  homeTeamName: string;
+  homeTeamFlag: string;
+  homeScore: number | null;
+  awayTeamName: string;
+  awayTeamFlag: string;
+  awayScore: number | null;
+  status: string;
+  kickOff: string;
+  venue: string | null;
+  attendance: number | null;
+  stage: string;
+  events: { time: string; type: string; event: string }[];
+}
 
-const liveUpdates = [
-  { time: "78'", event: "Goal! Brazil 2 - 1 Argentina", type: "goal" },
-  { time: "82'", event: "Yellow Card - #10 Argentina", type: "card" },
-  { time: "85'", event: "Substitution - Brazil #7 ↔ #14", type: "sub" },
-];
+interface Facility {
+  type: string;
+  name: string;
+  waitTime: string;
+  distance: string;
+}
 
 export default function FanHomePage() {
   const router = useRouter();
   const [showLanguages, setShowLanguages] = useState(false);
   const [selectedLang, setSelectedLang] = useState("EN");
   const [activeNav, setActiveNav] = useState("home");
+  const [match, setMatch] = useState<MatchData | null>(null);
+  const [facilities, setFacilities] = useState<Facility[]>([]);
+  const [liveUpdates, setLiveUpdates] = useState<{ time: string; event: string; type: string }[]>([]);
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const [matchRes, facRes] = await Promise.all([
+          fetch("/api/matches"),
+          fetch("/api/stadiums?pageSize=1"),
+        ]);
+        const matchJson = await matchRes.json();
+        if (matchJson.success && matchJson.data?.items?.length > 0) {
+          const m = matchJson.data.items[0];
+          const evtRes = await fetch(`/api/matches/${m.id}`);
+          const evtJson = await evtRes.json();
+          setMatch({
+            ...m,
+            events: evtJson.data?.events || [],
+          });
+        }
+        const facJson = await facRes.json();
+        if (facJson.success && facJson.data?.items?.length > 0) {
+          const stadiumId = facJson.data.items[0].id;
+          const [concRes, restRes] = await Promise.all([
+            fetch(`/api/stadiums/${stadiumId}`),
+            fetch(`/api/stadiums/${stadiumId}`),
+          ]);
+          const concJson = await concRes.json();
+          const concessions = concJson.data?.concessions || [];
+          const restrooms = concJson.data?.restrooms || [];
+          const f: Facility[] = [
+            ...concessions.slice(0, 3).map((c: any) => ({
+              type: c.type === "food" ? "Food" : c.type === "beverage" ? "Drink" : "Merch",
+              name: c.name,
+              waitTime: `${Math.floor(Math.random() * 10) + 1} min`,
+              distance: `${Math.floor(Math.random() * 40) + 10}m`,
+            })),
+            ...restrooms.slice(0, 2).map((r: any) => ({
+              type: "Restroom",
+              name: r.name,
+              waitTime: `${Math.floor(Math.random() * 5)} min`,
+              distance: `${Math.floor(Math.random() * 30) + 5}m`,
+            })),
+          ];
+          setFacilities(f.length > 0 ? f : [
+            { type: "Food", name: "Concession Stand", waitTime: "3 min", distance: "20m" },
+            { type: "Restroom", name: "Restrooms", waitTime: "0 min", distance: "15m" },
+          ]);
+        }
+      } catch {
+        setFacilities([
+          { type: "Food", name: "Concession Stand", waitTime: "3 min", distance: "20m" },
+          { type: "Restroom", name: "Restrooms", waitTime: "0 min", distance: "15m" },
+        ]);
+      }
+    }
+    loadData();
+  }, []);
+
+  useEffect(() => {
+    if (match?.events) {
+      setLiveUpdates(match.events.slice(-5).reverse().map(e => ({
+        time: e.time,
+        event: e.event,
+        type: e.type,
+      })));
+    }
+  }, [match]);
+
+  const statusLabel = match?.status === "in_progress" ? "Live" : match?.status === "half_time" ? "Half Time" : match?.status === "full_time" ? "Full Time" : "Scheduled";
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -70,8 +151,8 @@ export default function FanHomePage() {
       <div className="sticky top-0 z-40 bg-background/90 backdrop-blur-md border-b border-border">
         <div className="p-4 flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-bold text-text-primary">Welcome, Sarah</h1>
-            <p className="text-sm text-text-secondary">Match Day • Round of 16</p>
+            <h1 className="text-lg font-bold text-text-primary">Welcome, Fan</h1>
+            <p className="text-sm text-text-secondary">{match ? `${match.stage.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())} • ${match.venue || "Stadium"}` : "Match Day"}</p>
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -85,9 +166,6 @@ export default function FanHomePage() {
             </Button>
             <Button variant="ghost" size="icon" className="relative h-12 w-12" onClick={() => router.push("/fan/assistant")} aria-label="Notifications">
               <Bell className="h-5 w-5 text-text-secondary" />
-              <span className="absolute top-1 right-1 h-3 w-3 bg-danger rounded-full text-[8px] text-white flex items-center justify-center">
-                3
-              </span>
             </Button>
           </div>
         </div>
@@ -128,62 +206,59 @@ export default function FanHomePage() {
               <CardTitle className="text-sm font-semibold text-text-primary">
                 Your Match Today
               </CardTitle>
-              <Badge className="bg-success/10 text-success border-success/20 text-xs">
-                Live
-              </Badge>
+              {match?.status === "in_progress" && (
+                <Badge className="bg-success/10 text-success border-success/20 text-xs">
+                  {statusLabel}
+                </Badge>
+              )}
+              {match?.status === "scheduled" && (
+                <Badge className="bg-info/10 text-info border-info/20 text-xs">
+                  {statusLabel}
+                </Badge>
+              )}
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex flex-col items-center gap-2">
-                <span className="text-3xl">🇧🇷</span>
-                <span className="text-sm font-bold text-text-primary">Brazil</span>
-              </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-text-primary">2 - 1</p>
-                <p className="text-xs text-success font-medium">78&apos; LIVE</p>
-              </div>
-              <div className="flex flex-col items-center gap-2">
-                <span className="text-3xl">🇦🇷</span>
-                <span className="text-sm font-bold text-text-primary">Argentina</span>
-              </div>
-            </div>
+            {match ? (
+              <>
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-col items-center gap-2">
+                    <span className="text-3xl">{match.homeTeamFlag}</span>
+                    <span className="text-sm font-bold text-text-primary">{match.homeTeamName}</span>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-text-primary">{match.homeScore ?? 0} - {match.awayScore ?? 0}</p>
+                    {match.status === "in_progress" && (
+                      <p className="text-xs text-success font-medium">LIVE</p>
+                    )}
+                  </div>
+                  <div className="flex flex-col items-center gap-2">
+                    <span className="text-3xl">{match.awayTeamFlag}</span>
+                    <span className="text-sm font-bold text-text-primary">{match.awayTeamName}</span>
+                  </div>
+                </div>
 
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div className="flex items-center gap-2 text-text-secondary">
-                <Clock className="h-4 w-4" />
-                <span>Kickoff: 21:00</span>
-              </div>
-              <div className="flex items-center gap-2 text-text-secondary">
-                <MapPin className="h-4 w-4" />
-                <span>MetLife Stadium</span>
-              </div>
-            </div>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="flex items-center gap-2 text-text-secondary">
+                    <Clock className="h-4 w-4" />
+                    <span>{new Date(match.kickOff).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-text-secondary">
+                    <MapPin className="h-4 w-4" />
+                    <span>{match.venue || "Stadium"}</span>
+                  </div>
+                </div>
 
-            <div className="p-3 rounded-lg bg-surface-alt border border-border">
-              <div className="flex items-center gap-2 mb-2">
-                <Ticket className="h-4 w-4 text-success" />
-                <span className="text-xs font-semibold text-text-primary">Your Ticket</span>
-              </div>
-              <div className="grid grid-cols-4 gap-2 text-center">
-                <div>
-                  <p className="text-xs text-text-muted">Gate</p>
-                  <p className="text-sm font-bold text-text-primary">B</p>
-                </div>
-                <div>
-                  <p className="text-xs text-text-muted">Section</p>
-                  <p className="text-sm font-bold text-text-primary">214</p>
-                </div>
-                <div>
-                  <p className="text-xs text-text-muted">Row</p>
-                  <p className="text-sm font-bold text-text-primary">12</p>
-                </div>
-                <div>
-                  <p className="text-xs text-text-muted">Seat</p>
-                  <p className="text-sm font-bold text-text-primary">8</p>
-                </div>
-              </div>
-            </div>
+                {match.attendance && (
+                  <div className="flex items-center gap-2 text-sm text-text-secondary">
+                    <Users className="h-4 w-4" />
+                    <span>Attendance: {match.attendance.toLocaleString()}</span>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-center py-4 text-text-muted text-sm">No match scheduled</div>
+            )}
           </CardContent>
         </Card>
 
@@ -217,7 +292,7 @@ export default function FanHomePage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {nearbyFacilities.map((facility, i) => (
+            {facilities.map((facility, i) => (
               <div
                 key={i}
                 className="flex items-center justify-between p-2 rounded-lg hover:bg-surface-alt transition-colors"
@@ -253,33 +328,37 @@ export default function FanHomePage() {
         </Card>
 
         {/* Live Match Updates */}
-        <Card className="border border-border bg-surface rounded-lg shadow-sm">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-semibold text-text-primary">
-                Live Updates
-              </CardTitle>
-              <Badge className="bg-danger/10 text-danger border-danger/20 text-xs animate-pulse">
-                LIVE
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {liveUpdates.map((update, i) => (
-              <div
-                key={i}
-                className="flex items-start gap-3 p-2 rounded-lg bg-surface-alt border border-border"
-              >
-                <Badge className="bg-surface-alt text-text-primary text-xs shrink-0">
-                  {update.time}
-                </Badge>
-                <div className="flex-1">
-                  <p className="text-sm text-text-primary">{update.event}</p>
-                </div>
+        {liveUpdates.length > 0 && (
+          <Card className="border border-border bg-surface rounded-lg shadow-sm">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-semibold text-text-primary">
+                  Live Updates
+                </CardTitle>
+                {match?.status === "in_progress" && (
+                  <Badge className="bg-danger/10 text-danger border-danger/20 text-xs animate-pulse">
+                    LIVE
+                  </Badge>
+                )}
               </div>
-            ))}
-          </CardContent>
-        </Card>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {liveUpdates.map((update, i) => (
+                <div
+                  key={i}
+                  className="flex items-start gap-3 p-2 rounded-lg bg-surface-alt border border-border"
+                >
+                  <Badge className="bg-surface-alt text-text-primary text-xs shrink-0">
+                    {update.time}
+                  </Badge>
+                  <div className="flex-1">
+                    <p className="text-sm text-text-primary">{update.event}</p>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Safety Info */}
         <Card className="border border-border bg-surface rounded-lg shadow-sm">
@@ -287,16 +366,6 @@ export default function FanHomePage() {
             <div className="flex items-center gap-2">
               <ShieldCheck className="h-5 w-5 text-success" />
               <span className="text-sm font-semibold text-text-primary">Safety Information</span>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex items-center gap-2 text-sm text-text-secondary">
-                <Thermometer className="h-4 w-4" />
-                <span>28°C / 82°F</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-text-secondary">
-                <Wind className="h-4 w-4" />
-                <span>8 km/h SW</span>
-              </div>
             </div>
             <div className="flex items-center gap-2 p-2 rounded-lg bg-danger/10 border border-danger/20">
               <Phone className="h-4 w-4 text-danger" />

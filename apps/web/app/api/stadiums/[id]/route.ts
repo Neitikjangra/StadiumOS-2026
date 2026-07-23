@@ -40,6 +40,8 @@ export async function GET(
         gates: { orderBy: { name: "asc" } },
         zones: { orderBy: { name: "asc" } },
         matches: { orderBy: { kickOff: "desc" }, take: 10 },
+        concessions: { orderBy: { name: "asc" } },
+        restrooms: { orderBy: { name: "asc" } },
         incidents: { where: { status: { not: "resolved" } }, orderBy: { reportedAt: "desc" }, take: 5 },
         _count: { select: { gates: true, zones: true, matches: true, incidents: true } },
       },

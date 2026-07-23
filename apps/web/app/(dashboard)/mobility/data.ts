@@ -165,15 +165,20 @@ export async function fetchMobilityData(stadiumId: string) {
         type: string;
         capacity: number;
         status: string;
+        flowIn?: number;
+        flowOut?: number;
+        throughput?: number;
+        queueLength?: number;
+        waitTime?: number;
       }) => ({
         name: g.name,
         type: mapGateType(g.type),
         capacity: g.capacity,
-        flowIn: 0,
-        flowOut: 0,
-        queueLength: 0,
-        waitTime: 0,
-        throughput: 0,
+        flowIn: g.flowIn || 0,
+        flowOut: g.flowOut || 0,
+        queueLength: g.queueLength || 0,
+        waitTime: g.waitTime || 0,
+        throughput: g.throughput || 0,
         status: mapGateStatus(g.status),
       })
     );
@@ -197,9 +202,28 @@ export async function fetchMobilityData(stadiumId: string) {
       })
     );
 
+    const mappedZones = (d.zones || []).map(
+      (z: {
+        name: string;
+        type: string;
+        capacity: number;
+        currentOccupancy: number;
+        density: string;
+        trend: string;
+        level: number;
+      }) => ({
+        name: z.name,
+        level: z.level <= 1 ? "Lower" : z.level <= 2 ? "Upper" : z.level <= 3 ? "Main" : "Field",
+        current: z.currentOccupancy,
+        capacity: z.capacity,
+        density: z.density as "low" | "moderate" | "high" | "critical",
+        trend: z.trend as "up" | "down" | "stable",
+      })
+    );
+
     return {
       gates: mappedGates.length > 0 ? mappedGates : gates,
-      zones,
+      zones: mappedZones.length > 0 ? mappedZones : zones,
       queues: mappedQueues.length > 0 ? mappedQueues : queues,
     };
   } catch {

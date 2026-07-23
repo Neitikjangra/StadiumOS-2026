@@ -32,7 +32,7 @@ export const GET = withGuard(
       take: 10,
     });
 
-    // Get zone counts from gates
+    // Get gates with flow data
     const gates = await prisma.gate.findMany({
       where: { stadiumId },
       select: {
@@ -41,6 +41,26 @@ export const GET = withGuard(
         type: true,
         capacity: true,
         status: true,
+        flowIn: true,
+        flowOut: true,
+        throughput: true,
+        queueLength: true,
+        waitTime: true,
+      },
+    });
+
+    // Get zones with occupancy
+    const zones = await prisma.zone.findMany({
+      where: { stadiumId },
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        capacity: true,
+        currentOccupancy: true,
+        density: true,
+        trend: true,
+        level: true,
       },
     });
 
@@ -53,6 +73,7 @@ export const GET = withGuard(
       data: {
         stadiumId,
         gates,
+        zones,
         queueSnapshots,
         alerts,
         metrics: {

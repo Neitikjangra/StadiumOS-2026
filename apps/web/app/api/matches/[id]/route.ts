@@ -43,6 +43,7 @@ export async function GET(
       include: {
         stadium: { include: { gates: true, zones: true } },
         incidents: { orderBy: { reportedAt: "desc" } },
+        events: { orderBy: { time: "asc" } },
         _count: { select: { incidents: true } },
       },
     });

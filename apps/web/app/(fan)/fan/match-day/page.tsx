@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,35 +24,6 @@ import {
 import Link from "next/link";
 import { toast } from "sonner";
 
-const matchInfo = {
-  homeTeam: { name: "Brazil", flag: "🇧🇷", score: 2 },
-  awayTeam: { name: "Argentina", flag: "🇦🇷", score: 1 },
-  status: "2nd Half",
-  time: "78:24",
-  venue: "MetLife Stadium, East Rutherford",
-  attendance: "82,500",
-};
-
-const timeline = [
-  { time: "12'", type: "goal", team: "home", event: "Goal - Vinícius Jr.", player: "#7" },
-  { time: "34'", type: "card", team: "away", event: "Yellow Card - Rodrigo De Paul", player: "#7" },
-  { time: "45+2'", type: "goal", team: "away", event: "Goal - Lautaro Martínez", player: "#22" },
-  { time: "56'", type: "var", team: "none", event: "VAR Review - Penalty Check", player: "" },
-  { time: "58'", type: "penalty", team: "home", event: "Penalty Awarded to Brazil", player: "" },
-  { time: "59'", type: "goal", team: "home", event: "Goal - Rodrygo (Penalty)", player: "#11" },
-  { time: "67'", type: "sub", team: "home", event: "Substitution - Raphinha OFF, Savinho ON", player: "#10 ↔ #18" },
-  { time: "72'", type: "sub", team: "away", event: "Substitution - Messi OFF, Dybala ON", player: "#10 ↔ #21" },
-  { time: "78'", type: "card", team: "home", event: "Yellow Card - Marquinhos", player: "#3" },
-];
-
-const gates = [
-  { name: "Gate A", status: "open", crowd: "low" },
-  { name: "Gate B", status: "open", crowd: "medium" },
-  { name: "Gate C", status: "open", crowd: "high" },
-  { name: "Gate D", status: "restricted", crowd: "high" },
-  { name: "Gate E", status: "open", crowd: "low" },
-];
-
 const safetyTips = [
   "Keep your ticket and ID accessible at all times",
   "Stay hydrated - free water stations at all gates",
@@ -68,8 +39,88 @@ const emergencyContacts = [
   { service: "Lost & Found", number: "Visit Gate A Info Desk" },
 ];
 
+interface MatchData {
+  id: string;
+  homeTeamName: string;
+  homeTeamFlag: string;
+  homeScore: number | null;
+  awayTeamName: string;
+  awayTeamFlag: string;
+  awayScore: number | null;
+  status: string;
+  kickOff: string;
+  venue: string | null;
+  attendance: number | null;
+  stage: string;
+}
+
+interface MatchEvent {
+  time: string;
+  type: string;
+  team: string;
+  event: string;
+  player: string;
+}
+
+interface GateData {
+  name: string;
+  status: string;
+  crowd: string;
+}
+
+interface WeatherData {
+  temperature: number;
+  humidity: number;
+  windSpeed: number;
+  conditions: string;
+}
+
 export default function MatchPage() {
   const [activeTab, setActiveTab] = useState<"timeline" | "stadium" | "safety">("timeline");
+  const [match, setMatch] = useState<MatchData | null>(null);
+  const [timeline, setTimeline] = useState<MatchEvent[]>([]);
+  const [gates, setGates] = useState<GateData[]>([]);
+  const [weather, setWeather] = useState<WeatherData | null>(null);
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const matchRes = await fetch("/api/matches");
+        const matchJson = await matchRes.json();
+        if (matchJson.success && matchJson.data?.items?.length > 0) {
+          const m = matchJson.data.items[0];
+          setMatch(m);
+
+          const evtRes = await fetch(`/api/matches/${m.id}`);
+          const evtJson = await evtRes.json();
+          if (evtJson.data?.events) {
+            setTimeline(evtJson.data.events);
+          }
+
+          if (m.stadiumId) {
+            const gateRes = await fetch(`/api/mobility?stadiumId=${m.stadiumId}`);
+            const gateJson = await gateRes.json();
+            if (gateJson.success && gateJson.data?.gates) {
+              setGates(gateJson.data.gates.map((g: any) => ({
+                name: g.name,
+                status: g.status === "open" ? "open" : "restricted",
+                crowd: g.queueLength > 200 ? "high" : g.queueLength > 100 ? "medium" : "low",
+              })));
+            }
+
+            const weatherRes = await fetch("/api/ingest/weather");
+            const weatherJson = await weatherRes.json();
+            if (weatherJson.data) {
+              setWeather(weatherJson.data);
+            }
+          }
+        }
+      } catch {}
+    }
+    loadData();
+  }, []);
+
+  const statusLabel = match?.status === "in_progress" ? "Live" : match?.status === "half_time" ? "Half Time" : match?.status === "full_time" ? "Full Time" : "Scheduled";
 
   return (
     <div className="min-h-screen bg-background pb-6">
@@ -83,7 +134,7 @@ export default function MatchPage() {
           </Link>
           <div className="flex-1">
             <h1 className="text-lg font-bold text-text-primary">Match Day</h1>
-            <p className="text-xs text-text-secondary">Round of 16 • MetLife Stadium</p>
+            <p className="text-xs text-text-secondary">{match?.stage?.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) || "Match"} • {match?.venue || "Stadium"}</p>
           </div>
         </div>
       </div>
@@ -92,36 +143,44 @@ export default function MatchPage() {
         {/* Match Header */}
         <Card className="border border-border bg-surface rounded-lg shadow-sm">
           <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <Badge className="bg-success/10 text-success border-success/20 animate-pulse">
-                {matchInfo.status}
-              </Badge>
-              <div className="flex items-center gap-2 text-text-secondary">
-                <Clock className="h-4 w-4" />
-                <span className="text-sm font-mono font-bold">{matchInfo.time}</span>
-              </div>
-            </div>
+            {match ? (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <Badge className={`${match.status === "in_progress" ? "bg-success/10 text-success border-success/20 animate-pulse" : "bg-info/10 text-info border-info/20"}`}>
+                    {statusLabel}
+                  </Badge>
+                  {match.status === "in_progress" && (
+                    <div className="flex items-center gap-2 text-text-secondary">
+                      <Clock className="h-4 w-4" />
+                      <span className="text-sm font-mono font-bold">LIVE</span>
+                    </div>
+                  )}
+                </div>
 
-            <div className="flex items-center justify-between">
-              <div className="flex flex-col items-center gap-2 flex-1">
-                <span className="text-4xl">{matchInfo.homeTeam.flag}</span>
-                <span className="text-base font-bold text-text-primary">{matchInfo.homeTeam.name}</span>
-              </div>
-              <div className="text-center px-6">
-                <p className="text-4xl font-black text-text-primary">
-                  {matchInfo.homeTeam.score} - {matchInfo.awayTeam.score}
-                </p>
-              </div>
-              <div className="flex flex-col items-center gap-2 flex-1">
-                <span className="text-4xl">{matchInfo.awayTeam.flag}</span>
-                <span className="text-base font-bold text-text-primary">{matchInfo.awayTeam.name}</span>
-              </div>
-            </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-col items-center gap-2 flex-1">
+                    <span className="text-4xl">{match.homeTeamFlag}</span>
+                    <span className="text-base font-bold text-text-primary">{match.homeTeamName}</span>
+                  </div>
+                  <div className="text-center px-6">
+                    <p className="text-4xl font-black text-text-primary">
+                      {match.homeScore ?? 0} - {match.awayScore ?? 0}
+                    </p>
+                  </div>
+                  <div className="flex flex-col items-center gap-2 flex-1">
+                    <span className="text-4xl">{match.awayTeamFlag}</span>
+                    <span className="text-base font-bold text-text-primary">{match.awayTeamName}</span>
+                  </div>
+                </div>
 
-            <div className="mt-4 flex items-center justify-center gap-2 text-sm text-text-secondary">
-              <Users className="h-4 w-4" />
-              <span>Attendance: {matchInfo.attendance}</span>
-            </div>
+                <div className="mt-4 flex items-center justify-center gap-2 text-sm text-text-secondary">
+                  <Users className="h-4 w-4" />
+                  <span>Attendance: {match.attendance?.toLocaleString() || "N/A"}</span>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-4 text-text-muted">Loading match data...</div>
+            )}
           </CardContent>
         </Card>
 
@@ -156,7 +215,7 @@ export default function MatchPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {timeline.map((event, i) => (
+              {timeline.length > 0 ? timeline.map((event, i) => (
                 <div key={i} className="flex items-start gap-3 relative">
                   <div className="flex flex-col items-center">
                     <div
@@ -164,9 +223,7 @@ export default function MatchPage() {
                         event.type === "goal"
                           ? "bg-success text-white"
                           : event.type === "card"
-                          ? event.event.includes("Red")
-                            ? "bg-danger text-white"
-                            : "bg-warning text-black"
+                          ? "bg-warning text-black"
                           : event.type === "var"
                           ? "bg-primary text-white"
                           : event.type === "penalty"
@@ -187,7 +244,9 @@ export default function MatchPage() {
                     )}
                   </div>
                 </div>
-              ))}
+              )) : (
+                <p className="text-sm text-text-muted text-center py-4">No events yet</p>
+              )}
             </CardContent>
           </Card>
         )}
@@ -198,54 +257,11 @@ export default function MatchPage() {
             <Card className="border border-border bg-surface rounded-lg shadow-sm">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-semibold text-text-primary">
-                  Stadium Map
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="relative w-full aspect-[4/3] bg-surface-alt rounded-xl border border-border overflow-hidden">
-                  {/* Simplified stadium layout */}
-                  <div className="absolute inset-4 border-2 border-text-muted/20 rounded-full">
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 text-xs text-success font-bold">
-                      North Stand
-                    </div>
-                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 text-xs text-success font-bold">
-                      South Stand
-                    </div>
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 text-xs text-info font-bold">
-                      Gate A
-                    </div>
-                    <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 text-xs text-warning font-bold">
-                      Gate C
-                    </div>
-                    <div className="absolute top-0 right-0 text-xs text-primary font-bold">
-                      Gate B
-                    </div>
-                    <div className="absolute bottom-0 left-0 text-xs text-danger font-bold">
-                      Gate E
-                    </div>
-                    {/* Pitch */}
-                    <div className="absolute inset-8 border border-success/20 rounded-lg flex items-center justify-center">
-                      <span className="text-success/40 text-xs font-bold">PITCH</span>
-                    </div>
-                    {/* Your location */}
-                    <div className="absolute bottom-1/3 right-1/4 w-3 h-3 bg-success rounded-full animate-pulse shadow-lg shadow-success/50" />
-                  </div>
-                </div>
-                <p className="text-xs text-text-muted mt-2 text-center">
-                  Green dot = Your location • Section 214, Row 12, Seat 8
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Gate Status */}
-            <Card className="border border-border bg-surface rounded-lg shadow-sm">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold text-text-primary">
                   Gate Status
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                {gates.map((gate) => (
+                {gates.length > 0 ? gates.map((gate) => (
                   <div
                     key={gate.name}
                     className="flex items-center justify-between p-2 rounded-lg bg-surface-alt"
@@ -277,37 +293,41 @@ export default function MatchPage() {
                       </Badge>
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <p className="text-sm text-text-muted text-center py-4">Loading gate data...</p>
+                )}
               </CardContent>
             </Card>
 
             {/* Weather */}
-            <Card className="border border-border bg-surface rounded-lg shadow-sm">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Cloud className="h-5 w-5 text-info" />
-                  <span className="text-sm font-semibold text-text-primary">Weather</span>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="flex items-center gap-2">
-                    <Thermometer className="h-4 w-4 text-warning" />
-                    <span className="text-sm text-text-secondary">28°C / 82°F</span>
+            {weather && (
+              <Card className="border border-border bg-surface rounded-lg shadow-sm">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Cloud className="h-5 w-5 text-info" />
+                    <span className="text-sm font-semibold text-text-primary">Weather</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Wind className="h-4 w-4 text-info" />
-                    <span className="text-sm text-text-secondary">8 km/h SW</span>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex items-center gap-2">
+                      <Thermometer className="h-4 w-4 text-warning" />
+                      <span className="text-sm text-text-secondary">{weather.temperature}°C</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Wind className="h-4 w-4 text-info" />
+                      <span className="text-sm text-text-secondary">{weather.windSpeed} km/h</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Droplets className="h-4 w-4 text-info" />
+                      <span className="text-sm text-text-secondary">{weather.humidity}% humidity</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Eye className="h-4 w-4 text-text-muted" />
+                      <span className="text-sm text-text-secondary">{weather.conditions}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Droplets className="h-4 w-4 text-info" />
-                    <span className="text-sm text-text-secondary">65% humidity</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Eye className="h-4 w-4 text-text-muted" />
-                    <span className="text-sm text-text-secondary">Clear skies</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
           </>
         )}
 
