@@ -65,7 +65,7 @@ export function KnowledgeAdmin() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Knowledge Base</h1>
+          <h1 className="text-2xl font-bold text-text-primary">Knowledge Base</h1>
           <p className="text-sm text-text-muted">SOPs, policies, procedures, and operational guidance</p>
         </div>
         <button

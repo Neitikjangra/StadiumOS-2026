@@ -260,7 +260,7 @@ export default function NotificationsPage() {
                           <SelectTrigger className="bg-surface-alt border-border rounded-xl h-11">
                             <SelectValue placeholder="Select type..." />
                           </SelectTrigger>
-                          <SelectContent className="bg-[#1a1f35] border-border rounded-xl">
+                          <SelectContent className="bg-card border-border rounded-xl">
                             {NOTIFICATION_TYPES.map((type) => (
                               <SelectItem key={type.value} value={type.value} className="rounded-lg">
                                 <div className="flex items-center gap-2">
@@ -278,7 +278,7 @@ export default function NotificationsPage() {
                           <SelectTrigger className="bg-surface-alt border-border rounded-xl h-11">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent className="bg-[#1a1f35] border-border rounded-xl">
+                           <SelectContent className="bg-card border-border rounded-xl">
                             {PRIORITIES.map((p) => (
                               <SelectItem key={p.value} value={p.value} className="rounded-lg">
                                 <Badge className={`${p.color} text-xs`}>{p.label}</Badge>
@@ -351,7 +351,7 @@ export default function NotificationsPage() {
                       </div>
                       {renderChips(ROLES, roles, setRoles, ROLES)}
                     </div>
-                    <Separator className="bg-white/[0.06]" />
+                    <Separator className="bg-border" />
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <Label className="text-text-secondary text-xs uppercase tracking-wider">Stadium Zones</Label>
@@ -363,7 +363,7 @@ export default function NotificationsPage() {
                       </div>
                       {renderChips(ZONES, zones, setZones, ZONES)}
                     </div>
-                    <Separator className="bg-white/[0.06]" />
+                    <Separator className="bg-border" />
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <Label className="text-text-secondary text-xs uppercase tracking-wider">Languages</Label>
@@ -375,7 +375,7 @@ export default function NotificationsPage() {
                       </div>
                       {renderChips(LANGUAGES, languages, setLanguages, LANGUAGES)}
                     </div>
-                    <Separator className="bg-white/[0.06]" />
+                    <Separator className="bg-border" />
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <Label className="text-text-secondary text-xs uppercase tracking-wider">Ticket Types</Label>
@@ -387,7 +387,7 @@ export default function NotificationsPage() {
                       </div>
                       {renderChips(TICKET_TYPES, ticketTypes, setTicketTypes, TICKET_TYPES)}
                     </div>
-                    <Separator className="bg-white/[0.06]" />
+                    <Separator className="bg-border" />
                     <div className="flex items-center justify-between">
                       <div className="space-y-1">
                         <Label className="text-text-primary text-sm">All Stadiums</Label>
@@ -660,7 +660,7 @@ export default function NotificationsPage() {
                         <Filter className="w-4 h-4 mr-2 text-text-muted" />
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="bg-[#1a1f35] border-border rounded-xl">
+                      <SelectContent className="bg-card border-border rounded-xl">
                         <SelectItem value="all" className="rounded-lg">All Types</SelectItem>
                         {NOTIFICATION_TYPES.map((t) => (
                           <SelectItem key={t.value} value={t.value} className="rounded-lg">{t.label}</SelectItem>

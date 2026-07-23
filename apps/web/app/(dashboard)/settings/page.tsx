@@ -311,7 +311,7 @@ export default function SettingsPage() {
               <Settings className="w-8 h-8 text-info" />
               System Settings
             </h1>
-            <p className="text-text-secondary mt-1">Configure StadiumOS 2026 tournament operations platform</p>
+            <p className="page-subtitle">Configure StadiumOS 2026 tournament operations platform</p>
           </div>
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="bg-success/10 text-success border-success/20">

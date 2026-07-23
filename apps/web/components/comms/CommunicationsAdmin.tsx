@@ -94,7 +94,7 @@ export function CommunicationsAdmin() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-text-primary">Communications & Alerting</h2>
+        <h1 className="text-2xl font-bold text-text-primary">Communications & Alerting</h1>
         <nav className="flex gap-1">
           {navItems.map((item) => (
             <button key={item.key} onClick={() => setView(item.key)}

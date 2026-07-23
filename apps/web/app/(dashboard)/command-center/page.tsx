@@ -22,9 +22,29 @@ const EMPTY_STATE = {
 export default async function CommandCenterPage() {
   try {
     const initialData = await getCommandCenterData();
-    return <CommandCenterClient initialData={initialData} />;
+    return (
+      <div className="space-y-6">
+        <div className="page-header">
+          <div>
+            <h1 className="page-title">Command Center</h1>
+            <p className="page-subtitle">Real-time tournament operations overview</p>
+          </div>
+        </div>
+        <CommandCenterClient initialData={initialData} />
+      </div>
+    );
   } catch (e: any) {
     console.error("[CommandCenterPage] Render error:", e?.message);
-    return <CommandCenterClient initialData={EMPTY_STATE as any} />;
+    return (
+      <div className="space-y-6">
+        <div className="page-header">
+          <div>
+            <h1 className="page-title">Command Center</h1>
+            <p className="page-subtitle">Real-time tournament operations overview</p>
+          </div>
+        </div>
+        <CommandCenterClient initialData={EMPTY_STATE as any} />
+      </div>
+    );
   }
 }

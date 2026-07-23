@@ -116,7 +116,7 @@ export function RoutingAdmin() {
   return (
     <div className="flex flex-col h-full gap-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h2 className="text-xl font-bold text-text-primary">Routing & Optimization</h2>
+        <h1 className="text-2xl font-bold text-text-primary">Routing & Optimization</h1>
         <nav className="flex gap-1 flex-wrap">
           {navItems.map((item) => (
             <button key={item.key} onClick={() => setView(item.key)}

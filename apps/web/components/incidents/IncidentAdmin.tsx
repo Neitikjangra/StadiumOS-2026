@@ -91,7 +91,7 @@ export function IncidentAdmin() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-text-primary">Incident Management</h2>
+        <h1 className="text-2xl font-bold text-text-primary">Incident Management</h1>
         <div className="flex gap-2">
           <button onClick={() => setView('list')} className={`px-3 py-1 text-xs rounded ${view === 'list' ? 'bg-primary/10 text-primary' : 'text-text-muted hover:bg-surface-alt'}`}>List</button>
           <button onClick={() => setView('create')} className={`px-3 py-1 text-xs rounded ${view === 'create' ? 'bg-primary/10 text-primary' : 'text-text-muted hover:bg-surface-alt'}`}>New Incident</button>

@@ -24,13 +24,13 @@ export default function SimulatorPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="page-header">
         <div>
           <h1 className="page-title flex items-center gap-2">
             <FlaskConical className="w-6 h-6 text-success" />
             Event Simulator
           </h1>
-          <p className="text-sm text-text-secondary mt-1">
+          <p className="page-subtitle">
             Generate realistic match-day event streams for testing
           </p>
         </div>

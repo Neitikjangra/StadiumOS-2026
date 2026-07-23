@@ -6,7 +6,13 @@ const RoutingAdmin = dynamic(() => import("@/components/routing/RoutingAdmin").t
 
 export default function RoutingPage() {
   return (
-    <div className="h-full">
+    <div className="space-y-6">
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Routing & Optimization</h1>
+          <p className="page-subtitle">Optimize fan flow and wayfinding across venues</p>
+        </div>
+      </div>
       <RoutingAdmin />
     </div>
   );
