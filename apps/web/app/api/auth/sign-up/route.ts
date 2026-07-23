@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 
@@ -13,6 +12,10 @@ const signupSchema = z.object({
 
 export async function POST(req: Request) {
   try {
+    if (!process.env.DATABASE_URL) {
+      return NextResponse.json({ error: "Database not configured. Set DATABASE_URL in Vercel." }, { status: 500 });
+    }
+
     const body = await req.json();
     const parsed = signupSchema.safeParse(body);
 
@@ -21,6 +24,8 @@ export async function POST(req: Request) {
     }
 
     const { name, email, password, role, stadiumId } = parsed.data;
+
+    const { prisma } = await import("@/lib/prisma");
 
     const existing = await prisma.staffUser.findUnique({ where: { email } });
     if (existing) {
@@ -43,7 +48,12 @@ export async function POST(req: Request) {
     return NextResponse.json({
       user: { id: user.id, name: user.name, email: user.email, role: user.role },
     }, { status: 201 });
-  } catch {
-    return NextResponse.json({ error: "Registration failed" }, { status: 500 });
+  } catch (error: any) {
+    const msg = error?.message?.includes("DATABASE_URL")
+      ? "Database not configured. Set DATABASE_URL in Vercel environment variables."
+      : error?.code === "P2002"
+      ? "Email already registered"
+      : `Registration failed: ${error?.message || "unknown error"}`;
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
