@@ -65,9 +65,12 @@ export function AnalyticsDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [dbError, setDbError] = useState<string | null>(null);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setDbError(null);
     try {
       const [metricsRes, seriesRes, compRes] = await Promise.all([
         fetch(`/api/analytics/metrics?window=${window}`),
@@ -78,6 +81,7 @@ export function AnalyticsDashboard() {
       const metricsData = await metricsRes.json();
       const seriesData = await seriesRes.json();
       const compData = await compRes.json();
+      if (metricsData.dbError) setDbError(metricsData.dbError);
       setMetrics(metricsData.metrics);
       setTimeSeries((prev) => ({ ...prev, [selectedMetric]: seriesData.series }));
       setComparison((prev) => ({ ...prev, [`${selectedMetric}-${compMode}`]: compData.comparison }));
@@ -109,6 +113,15 @@ export function AnalyticsDashboard() {
 
   return (
     <div className="space-y-6">
+      {dbError && (
+        <div className="bg-danger/10 border border-danger/30 rounded-xl p-4 flex items-start gap-3">
+          <span className="text-danger text-lg">⚠</span>
+          <div>
+            <p className="text-sm font-semibold text-danger">Database Connection Issue</p>
+            <p className="text-xs text-text-muted mt-1">Analytics data is using fallback values. Check DATABASE_URL in Vercel env vars. Visit <code className="text-danger">/api/health</code> for diagnostics.</p>
+          </div>
+        </div>
+      )}
       {/* Controls */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-1 bg-surface-alt rounded-lg p-1" role="tablist" aria-label="Time window">

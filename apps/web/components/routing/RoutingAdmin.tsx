@@ -46,6 +46,11 @@ export function RoutingAdmin() {
       credentials: 'include',
       body: JSON.stringify({ from, destinationType: destType, count: 3 }),
     })
+      .then((r) => {
+        if (r.status === 401) { setError('Authentication required. Please log in again.'); setLoading(false); return r; }
+        if (r.status === 403) { setError('Insufficient permissions for routing data.'); setLoading(false); return r; }
+        return r;
+      })
       .then((r) => r.json())
       .then((d) => {
         if (d.error) { setError(d.error); setLoading(false); return; }
@@ -53,7 +58,7 @@ export function RoutingAdmin() {
         if (d.recommendations?.[0]?.route?.path) setPath(d.recommendations[0].route.path);
         setLoading(false);
       })
-      .catch((e) => { setError('Failed to fetch recommendations'); setLoading(false); });
+      .catch((e) => { setError('Failed to fetch recommendations. Check your connection.'); setLoading(false); });
   };
 
   const loadAlternates = () => {

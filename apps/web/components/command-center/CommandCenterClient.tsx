@@ -41,6 +41,15 @@ export default function CommandCenterClient({ initialData }: CommandCenterClient
 
   return (
     <div className="space-y-4">
+      {(data as any).dbError && (
+        <div className="bg-danger/10 border border-danger/30 rounded-xl p-4 flex items-start gap-3">
+          <span className="text-danger text-lg">⚠</span>
+          <div>
+            <p className="text-sm font-semibold text-danger">Database Connection Issue</p>
+            <p className="text-xs text-text-muted mt-1">The command center could not connect to the database. Check that DATABASE_URL is correctly set in your Vercel environment variables. Visit <code className="text-danger">/api/health</code> for diagnostics.</p>
+          </div>
+        </div>
+      )}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-bold text-text-primary">Command Center</h1>

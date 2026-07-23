@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
-import { computeMetrics } from '@/lib/analytics/engine';
+import { computeMetrics, getAnalyticsDbError } from '@/lib/analytics/engine';
 import type { TimeWindow } from '@/lib/analytics/types';
 
 export async function GET(request: NextRequest) {
@@ -16,5 +16,5 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const window = (searchParams.get('window') || '24h') as TimeWindow;
   const metrics = await computeMetrics(window);
-  return NextResponse.json({ metrics, window, generatedAt: new Date().toISOString() });
+  return NextResponse.json({ metrics, window, generatedAt: new Date().toISOString(), dbError: getAnalyticsDbError() });
 }

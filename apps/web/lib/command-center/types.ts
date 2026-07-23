@@ -243,4 +243,5 @@ export interface CommandCenterState {
   escalations: EscalationItem[];
   filters: CommandCenterFilters;
   lastUpdated: string;
+  dbError?: string | null;
 }

@@ -19,9 +19,16 @@ import type {
 } from "./types";
 
 let prisma: any = null;
+let prismaError: string | null = null;
 try {
-  prisma = (await import("@/lib/prisma")).prisma;
-} catch {}
+  const mod = await import("@/lib/prisma");
+  prisma = mod.prisma;
+  // Test connection
+  await prisma.$queryRaw`SELECT 1`;
+} catch (e: any) {
+  prismaError = e?.message || "Unknown Prisma error";
+  console.error("[CC] Prisma connection failed:", prismaError);
+}
 
 async function getStadiumNameMap(): Promise<Map<string, string>> {
   const stadiums = await prisma.stadium.findMany({ select: { id: true, name: true } });
@@ -310,6 +317,10 @@ export async function getEscalations(): Promise<EscalationItem[]> {
 }
 
 export async function getCommandCenterData(filters?: Partial<CommandCenterFilters>): Promise<CommandCenterState> {
+  if (prismaError) {
+    console.error("[CC] Database not available:", prismaError);
+  }
+
   const safe = <T>(fn: () => Promise<T>, fallback: T) => fn().catch((e) => { console.error("CC query error:", e?.message); return fallback; });
 
   const overview = await safe(getTournamentOverview, {
@@ -336,5 +347,6 @@ export async function getCommandCenterData(filters?: Partial<CommandCenterFilter
     overview, stadiums, incidents, congestion, queues, transit, accessibility, communications, risks, recommendations, timeline, escalations,
     filters: (filters ?? {}) as CommandCenterFilters,
     lastUpdated: new Date().toISOString(),
+    dbError: prismaError,
   };
 }
