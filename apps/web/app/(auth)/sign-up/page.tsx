@@ -28,7 +28,7 @@ export default function SignUpPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("staff");
+  const [role, setRole] = useState("fan_user");
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -141,7 +141,7 @@ export default function SignUpPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-surface border-border">
-                    <SelectItem value="staff">Staff</SelectItem>
+                    <SelectItem value="fan_user">Staff</SelectItem>
                     <SelectItem value="stadium_manager">Stadium Manager</SelectItem>
                     <SelectItem value="security_lead">Security Lead</SelectItem>
                     <SelectItem value="mobility_lead">Mobility Lead</SelectItem>
