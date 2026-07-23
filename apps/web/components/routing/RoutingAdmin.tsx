@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { DestinationType, Recommendation, AlternateGateRecommendation, StagedExitRecommendation } from '@/lib/routing/types';
 import { RouteMap } from './RouteMap';
 import { RouteRecommendations, AlternateGateList, StagedExitList } from './RouteRecommendations';
@@ -102,6 +102,11 @@ export function RoutingAdmin() {
     { key: 'pressure', label: 'Zone Pressure' },
     { key: 'simulate', label: 'Simulate' },
   ];
+
+  useEffect(() => {
+    loadRecommendations();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="flex flex-col h-full gap-4">

@@ -99,8 +99,8 @@ export default function MobilityPage() {
     return () => { cancelled = true; };
   }, [selectedStadium]);
 
-  const totalInside = 65310;
-  const stadiumCapacity = 82500;
+  const totalInside = zonesList.reduce((s, z) => s + z.current, 0);
+  const stadiumCapacity = zonesList.reduce((s, z) => s + z.capacity, 0) || 82500;
   const occupancyPct = Math.round((totalInside / stadiumCapacity) * 100);
 
   const totalFlowIn = gatesList.reduce((s, g) => s + g.flowIn, 0);

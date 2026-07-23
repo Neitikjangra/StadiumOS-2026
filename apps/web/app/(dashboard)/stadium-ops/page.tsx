@@ -1,4 +1,5 @@
 import StadiumOpsClient from "@/components/stadium-ops/StadiumOpsClient";
+import { prisma } from "@/lib/prisma";
 
 export default async function StadiumOpsPage({
   params,
@@ -8,17 +9,19 @@ export default async function StadiumOpsPage({
   const { id } = await params;
   const venueId = id ?? "metlife";
 
-  const venueNames: Record<string, string> = {
-    metlife: "MetLife Stadium",
-    att: "AT&T Stadium",
-    hardrock: "Hard Rock Stadium",
-    sofi: "SoFi Stadium",
-  };
+  let venueName = "Stadium";
+  try {
+    const stadium = await prisma.stadium.findFirst({
+      where: { id: venueId, isDeleted: false },
+      select: { name: true },
+    });
+    if (stadium) venueName = stadium.name;
+  } catch {}
 
   return (
     <StadiumOpsClient
       venueId={venueId}
-      venueName={venueNames[venueId] ?? "Stadium"}
+      venueName={venueName}
     />
   );
 }
