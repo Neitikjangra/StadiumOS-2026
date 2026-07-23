@@ -23,12 +23,10 @@ function tagsInclude(row: SOPRow, keyword: string): boolean {
 export async function generateRecommendations(): Promise<AIRecommendation[]> {
   if (!prisma) return [];
   try {
-    const [anomalies, incidents, queueData, sops] = await Promise.all([
-      prisma.anomalyEvent.findMany({ where: { acknowledged: false }, orderBy: { createdAt: "desc" }, take: 30 }) as Promise<AnomalyRow[]>,
-      prisma.incident.findMany({ where: { isDeleted: false, status: { notIn: ["closed", "resolved"] } }, orderBy: [{ severity: "asc" }, { reportedAt: "desc" }], take: 20 }) as Promise<IncidentRow[]>,
-      prisma.queueSnapshot.findMany({ orderBy: { timestamp: "desc" }, take: 20 }) as Promise<QueueRow[]>,
-      prisma.knowledgeDocument.findMany({ where: { status: "published", isDeleted: false }, take: 10 }) as Promise<SOPRow[]>,
-    ]);
+    const anomalies = await prisma.anomalyEvent.findMany({ where: { acknowledged: false }, orderBy: { createdAt: "desc" }, take: 30 }) as AnomalyRow[];
+    const incidents = await prisma.incident.findMany({ where: { isDeleted: false, status: { notIn: ["closed", "resolved"] } }, orderBy: [{ severity: "asc" }, { reportedAt: "desc" }], take: 20 }) as IncidentRow[];
+    const queueData = await prisma.queueSnapshot.findMany({ orderBy: { timestamp: "desc" }, take: 20 }) as QueueRow[];
+    const sops = await prisma.knowledgeDocument.findMany({ where: { status: "published", isDeleted: false }, take: 10 }) as SOPRow[];
 
     const recommendations: AIRecommendation[] = [];
     let recId = 0;

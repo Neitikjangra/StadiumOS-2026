@@ -310,40 +310,31 @@ export async function getEscalations(): Promise<EscalationItem[]> {
 }
 
 export async function getCommandCenterData(filters?: Partial<CommandCenterFilters>): Promise<CommandCenterState> {
-  try {
-    const overview = await getTournamentOverview();
-    const stadiums = await getStadiumHealth();
-    const incidents = await getLiveIncidents(filters);
-    const congestion = await getCrowdCongestion();
-    const queues = await getQueueWatchlist();
-    const transit = await getTransitDisruptions();
-    const accessibility = await getAccessibilityActivity();
-    const communications = await getCommunications();
-    const risks = await getRiskSignals();
-    const timeline = await getMatchTimeline();
-    const escalations = await getEscalations();
-    const recommendations = await generateRecommendations();
-    return {
-      overview, stadiums, incidents, congestion, queues, transit, accessibility, communications, risks, recommendations, timeline, escalations,
-      filters: (filters ?? {}) as CommandCenterFilters,
-      lastUpdated: new Date().toISOString(),
-    };
-  } catch (error) {
-    console.error("Command center data error:", error);
-    return {
-      overview: {
-        name: "FIFA World Cup 2026", status: "active",
-        startDate: "2026-06-11", endDate: "2026-07-19",
-        totalStadiums: 0, activeMatches: 0, totalAttendance: 0, totalCapacity: 0,
-        occupancyPercent: 0, activeIncidents: 0, criticalIncidents: 0,
-        openAlerts: 0, activeNotifications: 0, openGates: 0, systemHealth: "healthy",
-        lastUpdated: new Date().toISOString(),
-      },
-      stadiums: [], incidents: [], congestion: [], queues: [], transit: [],
-      accessibility: [], communications: [], risks: [], timeline: [],
-      escalations: [], recommendations: [],
-      filters: (filters ?? {}) as CommandCenterFilters,
-      lastUpdated: new Date().toISOString(),
-    };
-  }
+  const safe = <T>(fn: () => Promise<T>, fallback: T) => fn().catch((e) => { console.error("CC query error:", e?.message); return fallback; });
+
+  const overview = await safe(getTournamentOverview, {
+    name: "FIFA World Cup 2026", status: "active",
+    startDate: "2026-06-11", endDate: "2026-07-19",
+    totalStadiums: 0, activeMatches: 0, totalAttendance: 0, totalCapacity: 0,
+    occupancyPercent: 0, activeIncidents: 0, criticalIncidents: 0,
+    openAlerts: 0, activeNotifications: 0, openGates: 0, systemHealth: "healthy" as const,
+    lastUpdated: new Date().toISOString(),
+  });
+  const stadiums = await safe(() => getStadiumHealth(), []);
+  const incidents = await safe(() => getLiveIncidents(filters), []);
+  const congestion = await safe(() => getCrowdCongestion(), []);
+  const queues = await safe(() => getQueueWatchlist(), []);
+  const transit = await safe(() => getTransitDisruptions(), []);
+  const accessibility = await safe(() => getAccessibilityActivity(), []);
+  const communications = await safe(() => getCommunications(), []);
+  const risks = await safe(() => getRiskSignals(), []);
+  const timeline = await safe(() => getMatchTimeline(), []);
+  const escalations = await safe(() => getEscalations(), []);
+  const recommendations = await safe(() => generateRecommendations(), []);
+
+  return {
+    overview, stadiums, incidents, congestion, queues, transit, accessibility, communications, risks, recommendations, timeline, escalations,
+    filters: (filters ?? {}) as CommandCenterFilters,
+    lastUpdated: new Date().toISOString(),
+  };
 }
