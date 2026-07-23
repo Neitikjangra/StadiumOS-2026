@@ -1,135 +1,115 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   ArrowLeft,
-  MapPin,
   Utensils,
   Droplets,
-  ShoppingBag,
-  Cross,
   Navigation,
-  Users,
-  Clock,
   ChevronRight,
   Search,
-  Filter,
-  Star,
   LocateFixed,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 
-const gates = [
-  { name: "Gate A", status: "open", crowd: "low", x: "5%", y: "45%" },
-  { name: "Gate B", status: "open", crowd: "medium", x: "70%", y: "10%" },
-  { name: "Gate C", status: "open", crowd: "high", x: "90%", y: "45%" },
-  { name: "Gate D", status: "restricted", crowd: "high", x: "70%", y: "85%" },
-  { name: "Gate E", status: "open", crowd: "low", x: "5%", y: "85%" },
-];
+interface Gate {
+  name: string;
+  status: string;
+  crowd: string;
+  waitTime?: number;
+  flowIn?: number;
+  flowOut?: number;
+  x: string;
+  y: string;
+}
 
-const facilities = [
-  {
-    type: "food",
-    icon: Utensils,
-    name: "Burger King",
-    waitTime: "5 min",
-    distance: "20m",
-    x: "25%",
-    y: "20%",
-  },
-  {
-    type: "food",
-    icon: Utensils,
-    name: "Papa Johns",
-    waitTime: "3 min",
-    distance: "25m",
-    x: "75%",
-    y: "20%",
-  },
-  {
-    type: "drink",
-    icon: Droplets,
-    name: "Coca-Cola Stand",
-    waitTime: "2 min",
-    distance: "15m",
-    x: "25%",
-    y: "80%",
-  },
-  {
-    type: "drink",
-    icon: Droplets,
-    name: "Budweiser Bar",
-    waitTime: "8 min",
-    distance: "35m",
-    x: "75%",
-    y: "80%",
-  },
-  {
-    type: "restroom",
-    icon: Droplets,
-    name: "Restrooms A",
-    waitTime: "0 min",
-    distance: "10m",
-    x: "15%",
-    y: "50%",
-  },
-  {
-    type: "restroom",
-    icon: Droplets,
-    name: "Restrooms C",
-    waitTime: "2 min",
-    distance: "40m",
-    x: "85%",
-    y: "50%",
-  },
-  {
-    type: "merch",
-    icon: ShoppingBag,
-    name: "FIFA Store",
-    waitTime: "8 min",
-    distance: "40m",
-    x: "50%",
-    y: "15%",
-  },
-  {
-    type: "firstaid",
-    icon: Cross,
-    name: "First Aid Station",
-    waitTime: "0 min",
-    distance: "30m",
-    x: "50%",
-    y: "85%",
-  },
-];
+interface Facility {
+  type: string;
+  name: string;
+  waitTime: string;
+  distance: string;
+  rating?: number | null;
+  x: string;
+  y: string;
+}
 
-const nearbyFacilities = [
-  { type: "Food", name: "Burger King", waitTime: "5 min", distance: "20m" },
-  { type: "Drink", name: "Coca-Cola Stand", waitTime: "2 min", distance: "15m" },
-  { type: "Restroom", name: "Restrooms A", waitTime: "0 min", distance: "10m" },
-  { type: "Merch", name: "FIFA Store", waitTime: "8 min", distance: "40m" },
-];
+interface NearbyFacility {
+  type: string;
+  name: string;
+  waitTime: string;
+  distance: string;
+}
 
 const facilityFilters = [
   { id: "all", label: "All" },
   { id: "food", label: "Food" },
-  { id: "drink", label: "Drinks" },
   { id: "restroom", label: "Restrooms" },
-  { id: "merch", label: "Merch" },
-  { id: "firstaid", label: "First Aid" },
 ];
 
 export default function MapPage() {
   const [activeFilter, setActiveFilter] = useState("all");
   const [selectedFacility, setSelectedFacility] = useState<string | null>(null);
+  const [gates, setGates] = useState<Gate[]>([]);
+  const [facilities, setFacilities] = useState<Facility[]>([]);
+  const [nearbyFacilities, setNearbyFacilities] = useState<NearbyFacility[]>([]);
+  const [stadiumName, setStadiumName] = useState("Stadium");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await fetch("/api/fan/map");
+        if (res.ok) {
+          const data = await res.json();
+          setGates(data.gates || []);
+          setFacilities(data.facilities || []);
+          setNearbyFacilities(data.nearbyFacilities || []);
+          setStadiumName(data.stadium?.name || "Stadium");
+        }
+      } catch {
+        // fallback
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
 
   const filteredFacilities =
     activeFilter === "all"
       ? facilities
       : facilities.filter((f) => f.type === activeFilter);
+
+  const getIcon = (type: string) => {
+    switch (type) {
+      case "food": return Utensils;
+      case "drink": return Droplets;
+      case "restroom": return Droplets;
+      default: return Utensils;
+    }
+  };
+
+  const getIconColor = (type: string) => {
+    switch (type) {
+      case "food": return "text-warning";
+      case "drink": return "text-info";
+      case "restroom": return "text-primary";
+      default: return "text-warning";
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 text-primary animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-6">
@@ -143,7 +123,7 @@ export default function MapPage() {
           </Link>
           <div className="flex-1">
             <h1 className="text-lg font-bold text-text-primary">Stadium Map</h1>
-            <p className="text-xs text-text-secondary">MetLife Stadium • Interactive View</p>
+            <p className="text-xs text-text-secondary">{stadiumName} • Interactive View</p>
           </div>
           <Button variant="ghost" size="icon" className="text-text-primary h-12 w-12" onClick={() => toast.info("Centering on your location")}>
             <LocateFixed className="h-5 w-5" />
@@ -233,19 +213,10 @@ export default function MapPage() {
                           : "bg-surface-alt border border-border"
                       } transition-all`}
                     >
-                      <facility.icon
-                        className={`h-4 w-4 ${
-                          facility.type === "food"
-                            ? "text-warning"
-                            : facility.type === "drink"
-                            ? "text-info"
-                            : facility.type === "restroom"
-                            ? "text-primary"
-                            : facility.type === "merch"
-                            ? "text-warning"
-                            : "text-danger"
-                        }`}
-                      />
+                      {(() => {
+                        const Icon = getIcon(facility.type);
+                        return <Icon className={`h-4 w-4 ${getIconColor(facility.type)}`} />;
+                      })()}
                     </div>
                   </div>
                 ))}
@@ -292,33 +263,10 @@ export default function MapPage() {
               <Navigation className="h-5 w-5 text-success" />
               <span className="text-sm font-semibold text-text-primary">Route to Your Seat</span>
             </div>
-            <div className="space-y-2 text-sm text-text-secondary">
-              <div className="flex items-center gap-2">
-                <span className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
-                  1
-                </span>
-                <span>Enter through Gate B (closest to you)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
-                  2
-                </span>
-                <span>Turn right and follow signs to Section 200</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
-                  3
-                </span>
-                <span>Section 214 is on your left after 50m</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold">
-                  4
-                </span>
-                <span>Row 12, Seat 8 - Enjoy the match!</span>
-              </div>
-            </div>
-            <Button className="w-full mt-4 h-12 bg-primary hover:bg-primary/90 text-white" onClick={() => toast.success("Navigation started")}>
+            <p className="text-xs text-text-secondary mb-3">
+              Select your gate from the map above for turn-by-turn directions to your section.
+            </p>
+            <Button className="w-full h-12 bg-primary hover:bg-primary/90 text-white" onClick={() => toast.success("Navigation started")}>
               <Navigation className="h-4 w-4 mr-2" />
               Start Navigation
             </Button>
@@ -333,36 +281,38 @@ export default function MapPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {nearbyFacilities.map((facility, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between p-2 rounded-lg hover:bg-surface-alt transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-full bg-surface-alt flex items-center justify-center">
-                    {facility.type === "Food" && <Utensils className="h-4 w-4 text-warning" />}
-                    {facility.type === "Drink" && <Droplets className="h-4 w-4 text-info" />}
-                    {facility.type === "Restroom" && (
-                      <Droplets className="h-4 w-4 text-primary" />
-                    )}
-                    {facility.type === "Merch" && <Star className="h-4 w-4 text-warning" />}
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-text-primary">{facility.name}</p>
-                    <p className="text-xs text-text-muted">{facility.distance} away</p>
-                  </div>
-                </div>
-                <Badge
-                  className={`text-xs ${
-                    facility.waitTime === "0 min"
-                      ? "bg-success/10 text-success border-success/20"
-                      : "bg-warning/10 text-warning border-warning/20"
-                  }`}
+            {nearbyFacilities.length === 0 ? (
+              <p className="text-xs text-text-muted">No facilities nearby.</p>
+            ) : (
+              nearbyFacilities.map((facility, i) => (
+                <div
+                  key={i}
+                  className="flex items-center justify-between p-2 rounded-lg hover:bg-surface-alt transition-colors"
                 >
-                  {facility.waitTime}
-                </Badge>
-              </div>
-            ))}
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-full bg-surface-alt flex items-center justify-center">
+                      {facility.type === "Food" && <Utensils className="h-4 w-4 text-warning" />}
+                      {facility.type === "Restroom" && (
+                        <Droplets className="h-4 w-4 text-primary" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-text-primary">{facility.name}</p>
+                      <p className="text-xs text-text-muted">{facility.distance} away</p>
+                    </div>
+                  </div>
+                  <Badge
+                    className={`text-xs ${
+                      facility.waitTime === "0 min"
+                        ? "bg-success/10 text-success border-success/20"
+                        : "bg-warning/10 text-warning border-warning/20"
+                    }`}
+                  >
+                    {facility.waitTime}
+                  </Badge>
+                </div>
+              ))
+            )}
           </CardContent>
         </Card>
       </div>

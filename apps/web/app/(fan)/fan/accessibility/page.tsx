@@ -1,6 +1,6 @@
-"use client";
+﻿"use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,6 @@ import {
   BookOpen,
   Hand,
   MapPin,
-  Clock,
   Phone,
   ChevronRight,
   CheckCircle,
@@ -27,117 +26,96 @@ import {
 import Link from "next/link";
 import { toast } from "sonner";
 
-const accessibilityServices = [
-  {
-    id: "wheelchair",
-    icon: Accessibility,
-    name: "Wheelchair Access",
-    description: "Accessible seating areas with companion seats, wheelchair spaces, and easy access to facilities.",
-    location: "All Gates • Sections 101, 201, 301",
-    available: true,
-    capacity: "12 spaces available",
-  },
-  {
-    id: "hearing",
-    icon: Ear,
-    name: "Hearing Loop Systems",
-    description: "Induction loop systems for hearing aid users. Available at all concession stands and info desks.",
-    location: "Info Desks at Gates A, C, E",
-    available: true,
-    capacity: "Always available",
-  },
-  {
-    id: "sensory",
-    icon: Eye,
-    name: "Sensory Rooms",
-    description: "Quiet spaces designed for fans with autism, PTSD, or sensory processing disorders.",
-    location: "Gate B, Level 2 • Gate D, Level 1",
-    available: true,
-    capacity: "4 rooms • 2 available now",
-  },
-  {
-    id: "companion",
-    icon: Users,
-    name: "Companion Seats",
-    description: "Free companion seats for fans who require assistance from a personal care attendant.",
-    location: "Adjacent to all wheelchair spaces",
-    available: true,
-    capacity: "Available with wheelchair booking",
-  },
-  {
-    id: "restroom",
-    icon: Droplets,
-    name: "Accessible Restrooms",
-    description: "Fully accessible restrooms with adult changing tables and grab bars throughout the stadium.",
-    location: "All Gates • Every Level",
-    available: true,
-    capacity: "20+ facilities",
-  },
-  {
-    id: "print",
-    icon: BookOpen,
-    name: "Large Print Programs",
-    description: "Match programs and stadium guides available in large print format (18pt font).",
-    location: "All Info Desks",
-    available: true,
-    capacity: "Limited stock",
-  },
-  {
-    id: "braille",
-    icon: Hand,
-    name: "Braille Guides",
-    description: "Stadium navigation guides in Braille for visually impaired fans.",
-    location: "Info Desks at Gates A, C, E",
-    available: true,
-    capacity: "15 copies available",
-  },
-];
+interface Service {
+  id: string;
+  type: string;
+  name: string;
+  description: string;
+  location: string;
+  available: boolean;
+}
 
-const evacuationProcedures = [
-  {
-    area: "Wheelchair Seating",
-    procedure: "Proceed to nearest accessible exit. Staff will assist with evacuation chairs if needed.",
-    exits: "Gate A (South), Gate C (North)",
-  },
-  {
-    area: "Sensory Rooms",
-    procedure: "Staff will guide you to quiet evacuation route. Ear protection provided.",
-    exits: "Emergency exit adjacent to each room",
-  },
-  {
-    area: "Accessible Restrooms",
-    procedure: "Alert nearest staff member. Emergency call buttons available in all accessible facilities.",
-    exits: "Nearest emergency exit",
-  },
-];
+interface EvacuationProcedure {
+  area: string;
+  procedure: string;
+  exits: string;
+}
 
-const languageSupport = [
-  { code: "EN", label: "English", accessibility: "Full" },
-  { code: "ES", label: "Español", accessibility: "Full" },
-  { code: "FR", label: "Français", accessibility: "Full" },
-  { code: "DE", label: "Deutsch", accessibility: "Partial" },
-  { code: "PT", label: "Português", accessibility: "Full" },
-  { code: "AR", label: "العربية", accessibility: "Partial" },
-  { code: "ZH", label: "中文", accessibility: "Partial" },
-  { code: "JA", label: "日本語", accessibility: "Partial" },
-];
+interface LanguageItem {
+  code: string;
+  label: string;
+  accessibility: string;
+}
+
+const SERVICE_ICONS: Record<string, typeof Accessibility> = {
+  wheelchair: Accessibility,
+  hearing_loop: Ear,
+  sensory: Eye,
+  companion: Users,
+  accessible_restroom: Droplets,
+  large_print: BookOpen,
+  braille: Hand,
+};
 
 export default function AccessibilityPage() {
   const [requestType, setRequestType] = useState("");
   const [requestMessage, setRequestMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [services, setServices] = useState<Service[]>([]);
+  const [evacuation, setEvacuation] = useState<EvacuationProcedure[]>([]);
+  const [languages, setLanguages] = useState<LanguageItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleSubmit = () => {
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await fetch("/api/fan/accessibility");
+        if (res.ok) {
+          const data = await res.json();
+          setServices(data.services || []);
+          setEvacuation(data.evacuationProcedures || []);
+          setLanguages(data.languageSupport || []);
+        }
+      } catch {
+        // fallback
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  const handleSubmit = async () => {
     if (!requestType) return;
     setIsSubmitting(true);
-    setTimeout(() => {
+    try {
+      const res = await fetch("/api/fan/accessibility", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: requestType, message: requestMessage }),
+      });
+      if (res.ok) {
+        setSubmitted(true);
+        setRequestType("");
+        setRequestMessage("");
+      } else {
+        toast.error("Failed to submit request");
+      }
+    } catch {
+      toast.error("Failed to submit request");
+    } finally {
       setIsSubmitting(false);
-      setSubmitted(true);
-      setRequestType("");
-      setRequestMessage("");
-    }, 1500);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 text-primary animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-6">
@@ -175,42 +153,44 @@ export default function AccessibilityPage() {
 
         {/* Services List */}
         <div className="space-y-3">
-          {accessibilityServices.map((service) => (
-            <Card key={service.id} className="border border-border bg-surface rounded-lg shadow-sm">
-              <CardContent className="p-4">
-                <div className="flex items-start gap-3">
-                  <div className="h-10 w-10 rounded-xl bg-surface-alt flex items-center justify-center shrink-0">
-                    <service.icon className="h-5 w-5 text-success" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="text-sm font-semibold text-text-primary">{service.name}</h3>
-                      <Badge
-                        className={`text-[10px] ${
-                          service.available
-                            ? "bg-success/10 text-success border-success/20"
-                            : "bg-danger/10 text-danger border-danger/20"
-                        }`}
-                      >
-                        {service.available ? "Available" : "Unavailable"}
-                      </Badge>
+          {services.map((service) => {
+            const IconComponent = SERVICE_ICONS[service.type] || Accessibility;
+            return (
+              <Card key={service.id} className="border border-border bg-surface rounded-lg shadow-sm">
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-surface-alt flex items-center justify-center shrink-0">
+                      <IconComponent className="h-5 w-5 text-success" />
                     </div>
-                    <p className="text-xs text-text-secondary mb-2">{service.description}</p>
-                    <div className="flex items-center gap-4 text-xs text-text-muted">
-                      <div className="flex items-center gap-1">
-                        <MapPin className="h-3 w-3" />
-                        <span>{service.location}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="text-sm font-semibold text-text-primary">{service.name}</h3>
+                        <Badge
+                          className={`text-[10px] ${
+                            service.available
+                              ? "bg-success/10 text-success border-success/20"
+                              : "bg-danger/10 text-danger border-danger/20"
+                          }`}
+                        >
+                          {service.available ? "Available" : "Unavailable"}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-text-secondary mb-2">{service.description}</p>
+                      <div className="flex items-center gap-4 text-xs text-text-muted">
+                        <div className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3" />
+                          <span>{service.location}</span>
+                        </div>
                       </div>
                     </div>
-                    <p className="text-xs text-success/70 mt-1">{service.capacity}</p>
+                    <Button variant="ghost" size="icon" className="text-text-muted shrink-0 h-12 w-12" onClick={() => toast.info("Service details coming soon")} aria-label="View details">
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
                   </div>
-                  <Button variant="ghost" size="icon" className="text-text-muted shrink-0 h-12 w-12" onClick={() => toast.info("Service details coming soon")} aria-label="View details">
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
         {/* Request Assistance Form */}
@@ -305,7 +285,7 @@ export default function AccessibilityPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {evacuationProcedures.map((procedure, i) => (
+            {evacuation.map((procedure, i) => (
               <div key={i} className="p-3 rounded-lg bg-surface border border-border">
                 <h4 className="text-sm font-semibold text-text-primary mb-1">{procedure.area}</h4>
                 <p className="text-xs text-text-secondary mb-2">{procedure.procedure}</p>
@@ -328,7 +308,7 @@ export default function AccessibilityPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-2">
-              {languageSupport.map((lang) => (
+              {languages.map((lang) => (
                 <div
                   key={lang.code}
                   className="flex items-center justify-between p-2 rounded-lg bg-surface-alt"

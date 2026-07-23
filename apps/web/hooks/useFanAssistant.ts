@@ -35,8 +35,6 @@ function createGreeting(lang: FanLanguage): FanMessage {
   };
 }
 
-const MOCK_ALERTS: FanAlert[] = [];
-
 export function useFanAssistant() {
   const [messages, setMessages] = useState<FanMessage[]>([]);
   const [isTyping, setIsTyping] = useState(false);
@@ -48,7 +46,7 @@ export function useFanAssistant() {
     currentLng: null,
     locationPermission: 'prompt',
   });
-  const [alerts, setAlerts] = useState<FanAlert[]>(MOCK_ALERTS);
+  const [alerts, setAlerts] = useState<FanAlert[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const initialized = useRef(false);
 
@@ -56,6 +54,12 @@ export function useFanAssistant() {
     if (!initialized.current) {
       initialized.current = true;
       setMessages([createGreeting('en')]);
+      fetch('/api/fan/alerts')
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.alerts) setAlerts(data.alerts);
+        })
+        .catch(() => {});
     }
   }, []);
 
