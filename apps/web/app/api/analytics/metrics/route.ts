@@ -16,5 +16,6 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const window = (searchParams.get('window') || '24h') as TimeWindow;
   const metrics = await computeMetrics(window);
-  return NextResponse.json({ metrics, window, generatedAt: new Date().toISOString(), dbError: getAnalyticsDbError() });
+  const dbError = await getAnalyticsDbError();
+  return NextResponse.json({ metrics, window, generatedAt: new Date().toISOString(), dbError });
 }

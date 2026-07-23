@@ -1,20 +1,21 @@
 import type { MetricId, MetricValue, TimeSeriesPoint, TimeWindow } from './types';
 import { METRIC_CONFIG } from './types';
-import type { PrismaClient } from '@prisma/client';
 
-let prisma: PrismaClient | null = null;
-let prismaError: string | null = null;
-try {
-  const mod = await import('@/lib/prisma');
-  prisma = mod.prisma;
-  await prisma.$queryRaw`SELECT 1`;
-} catch (e: any) {
-  prismaError = e?.message || "Prisma connection failed";
-  console.error("[Analytics] Prisma connection failed:", prismaError);
+let prisma: any = null;
+
+async function getDb() {
+  if (!prisma) {
+    try {
+      const mod = await import('@/lib/prisma');
+      prisma = mod.prisma;
+    } catch {}
+  }
+  return prisma;
 }
 
-export function getAnalyticsDbError(): string | null {
-  return prismaError;
+export async function getAnalyticsDbError(): Promise<string | null> {
+  const db = await getDb();
+  return db ? null : "Prisma connection unavailable";
 }
 
 function getStatus(metricId: MetricId, value: number): 'good' | 'warning' | 'critical' {
@@ -68,7 +69,8 @@ function bucketTimestamp(ts: Date, bucketMs: number): Date {
 }
 
 export async function computeMetrics(window: TimeWindow = '24h'): Promise<MetricValue[]> {
-  if (!prisma) {
+  const db = await getDb();
+  if (!db) {
     return [
       metric('gate_wait_time', 3.8, 4.1),
       metric('queue_reduction_rate', 32, 27),
@@ -86,13 +88,18 @@ export async function computeMetrics(window: TimeWindow = '24h'): Promise<Metric
   const windowMs = getWindowMs(window);
   const since = new Date(now - windowMs);
   const prevSince = new Date(now - windowMs * 2);
-  const [incidents, queueSnapshots, notifications, accessibilityServices, transitUpdates] = await Promise.all([
-    prisma.incident.findMany({ where: { isDeleted: false }, orderBy: { reportedAt: 'desc' } }).catch(() => []),
-    prisma.queueSnapshot.findMany({ orderBy: { timestamp: 'desc' } }).catch(() => []),
-    prisma.notificationCampaign.findMany({ orderBy: { createdAt: 'desc' } }).catch(() => []),
-    prisma.accessibilityService.findMany({ take: 50 }).catch(() => []),
-    prisma.transitUpdate.findMany({ orderBy: { timestamp: 'desc' } }).catch(() => []),
+  const [rawIncidents, rawQueueSnapshots, rawNotifications, rawAccessibilityServices, rawTransitUpdates] = await Promise.all([
+    db.incident.findMany({ where: { isDeleted: false }, orderBy: { reportedAt: 'desc' } }).catch(() => []),
+    db.queueSnapshot.findMany({ orderBy: { timestamp: 'desc' } }).catch(() => []),
+    db.notificationCampaign.findMany({ orderBy: { createdAt: 'desc' } }).catch(() => []),
+    db.accessibilityService.findMany({ take: 50 }).catch(() => []),
+    db.transitUpdate.findMany({ orderBy: { timestamp: 'desc' } }).catch(() => []),
   ]);
+  const incidents: any[] = rawIncidents ?? [];
+  const queueSnapshots: any[] = rawQueueSnapshots ?? [];
+  const notifications: any[] = rawNotifications ?? [];
+  const accessibilityServices: any[] = rawAccessibilityServices ?? [];
+  const transitUpdates: any[] = rawTransitUpdates ?? [];
 
   const windowIncidents = incidents.filter((i) => i.reportedAt >= since);
   const prevWindowIncidents = incidents.filter((i) => i.reportedAt >= prevSince && i.reportedAt < since);
@@ -225,7 +232,8 @@ export async function computeMetrics(window: TimeWindow = '24h'): Promise<Metric
 }
 
 export async function computeTimeSeries(metricId: MetricId, window: TimeWindow = '24h'): Promise<TimeSeriesPoint[]> {
-  if (!prisma) {
+  const db = await getDb();
+  if (!db) {
     const count = window === 'live' ? 12 : window === '1h' ? 12 : window === '6h' ? 24 : window === '24h' ? 24 : window === '7d' ? 7 : 30;
     const bucketMs = getWindowMs(window) / count;
     const now = Date.now();
@@ -244,7 +252,7 @@ export async function computeTimeSeries(metricId: MetricId, window: TimeWindow =
 
   switch (metricId) {
     case 'gate_wait_time': {
-      const snapshots = await prisma.queueSnapshot.findMany({
+      const snapshots: any[] = await db.queueSnapshot.findMany({
         where: { timestamp: { gte: since } },
         orderBy: { timestamp: 'asc' },
       }).catch(() => []);
@@ -274,7 +282,7 @@ export async function computeTimeSeries(metricId: MetricId, window: TimeWindow =
     }
 
     case 'incident_response_time': {
-      const incidents = await prisma.incident.findMany({
+      const incidents: any[] = await db.incident.findMany({
         where: {
           isDeleted: false,
           reportedAt: { gte: since },
@@ -309,7 +317,7 @@ export async function computeTimeSeries(metricId: MetricId, window: TimeWindow =
     }
 
     case 'queue_reduction_rate': {
-      const snapshots = await prisma.queueSnapshot.findMany({
+      const snapshots: any[] = await db.queueSnapshot.findMany({
         where: { timestamp: { gte: since } },
         orderBy: { timestamp: 'asc' },
       }).catch(() => []);
@@ -342,7 +350,7 @@ export async function computeTimeSeries(metricId: MetricId, window: TimeWindow =
     }
 
     case 'notification_delivery_rate': {
-      const notifications = await prisma.notificationCampaign.findMany({
+      const notifications: any[] = await db.notificationCampaign.findMany({
         where: { createdAt: { gte: since } },
         orderBy: { createdAt: 'asc' },
       }).catch(() => []);
@@ -373,7 +381,7 @@ export async function computeTimeSeries(metricId: MetricId, window: TimeWindow =
     }
 
     case 'transit_reroute_adoption': {
-      const updates = await prisma.transitUpdate.findMany({
+      const updates: any[] = await db.transitUpdate.findMany({
         where: { timestamp: { gte: since } },
         orderBy: { timestamp: 'asc' },
       }).catch(() => []);
@@ -401,13 +409,13 @@ export async function computeTimeSeries(metricId: MetricId, window: TimeWindow =
     }
 
     case 'fan_help_resolution_time': {
-      const services = await prisma.accessibilityService.findMany({
+      const services: any[] = await db.accessibilityService.findMany({
         take: 50,
       }).catch(() => []);
 
       if (services.length === 0) return [];
 
-      const avgResponse = services.reduce((sum, s) => sum + ((s as any).avgResponseTime || 5), 0) / services.length;
+      const avgResponse = services.reduce((sum: number, s: any) => sum + (s.avgResponseTime || 5), 0) / services.length;
 
       const result: TimeSeriesPoint[] = [];
       for (let i = count - 1; i >= 0; i--) {
@@ -418,12 +426,12 @@ export async function computeTimeSeries(metricId: MetricId, window: TimeWindow =
     }
 
     case 'accessibility_response_sla': {
-      const services = await prisma.accessibilityService.findMany({
+      const services: any[] = await db.accessibilityService.findMany({
         take: 50,
       }).catch(() => []);
 
       const sla = services.length > 0
-        ? Math.min(100, Math.round((services.filter((s) => s.isAvailable).length / services.length) * 100))
+        ? Math.min(100, Math.round((services.filter((s: any) => s.isAvailable).length / services.length) * 100))
         : 0;
 
       const result: TimeSeriesPoint[] = [];
@@ -435,7 +443,7 @@ export async function computeTimeSeries(metricId: MetricId, window: TimeWindow =
     }
 
     case 'congestion_prediction_accuracy': {
-      const snapshots = await prisma.queueSnapshot.findMany({
+      const snapshots: any[] = await db.queueSnapshot.findMany({
         where: { timestamp: { gte: since } },
         orderBy: { timestamp: 'asc' },
       }).catch(() => []);
@@ -485,7 +493,8 @@ export async function computeComparison(
   metricId: MetricId,
   mode: 'stadium' | 'match' | 'time',
 ): Promise<{ label: string; current: number; previous: number; change: number; timeSeries: TimeSeriesPoint[] }[]> {
-  if (!prisma) {
+  const db = await getDb();
+  if (!db) {
     return [];
   }
   const now = Date.now();
@@ -494,26 +503,26 @@ export async function computeComparison(
   const prevSince = new Date(now - windowMs * 2);
 
   if (mode === 'stadium') {
-    const stadiums = await prisma.stadium.findMany({
+    const stadiums: any[] = await db.stadium.findMany({
       where: { isDeleted: false },
       orderBy: { name: 'asc' },
     }).catch(() => []);
 
     if (stadiums.length === 0) return [];
 
-    const [allSnapshots, allIncidents] = await Promise.all([
-      prisma.queueSnapshot.findMany({
+    const [allSnapshots, allIncidents]: any[][] = await Promise.all([
+      db.queueSnapshot.findMany({
         where: { timestamp: { gte: prevSince } },
         orderBy: { timestamp: 'desc' },
-      }).catch(() => []),
-      prisma.incident.findMany({
+      }).catch((): any[] => []),
+      db.incident.findMany({
         where: { isDeleted: false, reportedAt: { gte: prevSince } },
         orderBy: { reportedAt: 'desc' },
-      }).catch(() => []),
+      }).catch((): any[] => []),
     ]);
 
     return Promise.all(
-      stadiums.map(async (stadium) => {
+      stadiums.map(async (stadium: any) => {
         const stadiumSnapshots = allSnapshots.filter((s) => s.stadiumId === stadium.id);
         const windowSnapshots = stadiumSnapshots.filter((s) => s.timestamp >= since);
         const prevSnapshots = stadiumSnapshots.filter((s) => s.timestamp >= prevSince && s.timestamp < since);
@@ -574,27 +583,27 @@ export async function computeComparison(
   }
 
   if (mode === 'match') {
-    const matches = await prisma.match.findMany({
+    const matches = await db.match.findMany({
       where: { status: { not: 'cancelled' } },
       orderBy: { kickOff: 'desc' },
       take: 20,
-    }).catch(() => []);
+    }).catch((): any[] => []);
 
     if (matches.length === 0) return [];
 
-    const [allSnapshots, allIncidents] = await Promise.all([
-      prisma.queueSnapshot.findMany({
+    const [allSnapshots, allIncidents]: any[][] = await Promise.all([
+      db.queueSnapshot.findMany({
         where: { timestamp: { gte: prevSince } },
         orderBy: { timestamp: 'desc' },
-      }).catch(() => []),
-      prisma.incident.findMany({
+      }).catch((): any[] => []),
+      db.incident.findMany({
         where: { isDeleted: false, reportedAt: { gte: prevSince } },
         orderBy: { reportedAt: 'desc' },
-      }).catch(() => []),
+      }).catch((): any[] => []),
     ]);
 
     return Promise.all(
-      matches.map(async (match) => {
+      matches.map(async (match: any) => {
         const matchSnapshots = allSnapshots.filter((s) => s.stadiumId === match.stadiumId);
         const matchIncidents = allIncidents.filter((i) => i.matchId === match.id);
         const windowSnapshots = matchSnapshots.filter((s) => s.timestamp >= since);

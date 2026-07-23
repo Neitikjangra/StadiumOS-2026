@@ -19,25 +19,28 @@ import type {
 } from "./types";
 
 let prisma: any = null;
-let prismaError: string | null = null;
-try {
-  const mod = await import("@/lib/prisma");
-  prisma = mod.prisma;
-  // Test connection
-  await prisma.$queryRaw`SELECT 1`;
-} catch (e: any) {
-  prismaError = e?.message || "Unknown Prisma error";
-  console.error("[CC] Prisma connection failed:", prismaError);
+
+async function getDb() {
+  if (!prisma) {
+    try {
+      const mod = await import("@/lib/prisma");
+      prisma = mod.prisma;
+    } catch {}
+  }
+  return prisma;
 }
 
 async function getStadiumNameMap(): Promise<Map<string, string>> {
-  const stadiums = await prisma.stadium.findMany({ select: { id: true, name: true } });
+  const db = await getDb();
+  if (!db) return new Map();
+  const stadiums = await db.stadium.findMany({ select: { id: true, name: true } });
   return new Map(stadiums.map((s: any) => [s.id, s.name]));
 }
 
 
 export async function getTournamentOverview(): Promise<TournamentOverview> {
-  if (!prisma) {
+  const db = await getDb();
+  if (!db) {
     return {
       name: "FIFA World Cup 2026", status: "active",
       startDate: "2026-06-11", endDate: "2026-07-19",
@@ -47,16 +50,16 @@ export async function getTournamentOverview(): Promise<TournamentOverview> {
       lastUpdated: new Date().toISOString(),
     };
   }
-  const tournament = await prisma.tournament.findFirst({ where: { status: "active" } });
-  const stadiums = await prisma.stadium.findMany({ where: { isDeleted: false } });
-  const activeMatches = await prisma.match.count({ where: { status: { in: ["in_progress", "half_time", "second_half"] } } });
-  const activeIncidents = await prisma.incident.count({ where: { isDeleted: false, status: { notIn: ["closed", "resolved"] } } });
-  const criticalIncidents = await prisma.incident.count({ where: { isDeleted: false, severity: "critical", status: { notIn: ["closed", "resolved"] } } });
-  const openAlerts = await prisma.alert.count({ where: { isDeleted: false } });
+  const tournament = await db.tournament.findFirst({ where: { status: "active" } });
+  const stadiums = await db.stadium.findMany({ where: { isDeleted: false } });
+  const activeMatches = await db.match.count({ where: { status: { in: ["in_progress", "half_time", "second_half"] } } });
+  const activeIncidents = await db.incident.count({ where: { isDeleted: false, status: { notIn: ["closed", "resolved"] } } });
+  const criticalIncidents = await db.incident.count({ where: { isDeleted: false, severity: "critical", status: { notIn: ["closed", "resolved"] } } });
+  const openAlerts = await db.alert.count({ where: { isDeleted: false } });
   const totalCapacity = stadiums.reduce((s: number, st: any) => s + st.capacity, 0);
-  const activeNotifications = await prisma.notificationCampaign.count({ where: { status: { in: ["sent", "sending"] } } });
-  const openGates = await prisma.gate.count({ where: { status: "open" } });
-  const attendanceAgg = await prisma.match.aggregate({ _sum: { attendance: true } });
+  const activeNotifications = await db.notificationCampaign.count({ where: { status: { in: ["sent", "sending"] } } });
+  const openGates = await db.gate.count({ where: { status: "open" } });
+  const attendanceAgg = await db.match.aggregate({ _sum: { attendance: true } });
   const totalAttendance = attendanceAgg._sum.attendance ?? Math.floor(totalCapacity * 0.72);
   const occupancyPercent = totalCapacity > 0 ? Math.round((totalAttendance / totalCapacity) * 100) : 0;
   return {
@@ -80,8 +83,9 @@ export async function getTournamentOverview(): Promise<TournamentOverview> {
 }
 
 export async function getStadiumHealth(): Promise<StadiumHealth[]> {
-  if (!prisma) return [];
-  const stadiums = await prisma.stadium.findMany({
+  const db = await getDb();
+  if (!db) return [];
+  const stadiums = await db.stadium.findMany({
     where: { isDeleted: false },
     include: {
       gates: true,
@@ -91,28 +95,28 @@ export async function getStadiumHealth(): Promise<StadiumHealth[]> {
       _count: { select: { incidents: { where: { isDeleted: false, status: { notIn: ["closed", "resolved"] } } } } },
     },
   });
-  const weatherData = await prisma.weatherSnapshot.findMany({
+  const weatherData = await db.weatherSnapshot.findMany({
     orderBy: { timestamp: "desc" },
     distinct: ["stadiumId"],
     take: 16,
   });
   const weatherMap = new Map<string, any>(weatherData.map((w: any) => [w.stadiumId, w]));
 
-  const queueAggs = await prisma.queueSnapshot.groupBy({
+  const queueAggs = await db.queueSnapshot.groupBy({
     by: ["stadiumId"],
     _avg: { waitTime: true },
     where: { timestamp: { gte: new Date(Date.now() - 3600000) } },
   });
   const queueMap = new Map<string, number>(queueAggs.map((q: any) => [q.stadiumId, Math.round(q._avg.waitTime ?? 5)]));
 
-  const criticalCounts = await prisma.incident.groupBy({
+  const criticalCounts = await db.incident.groupBy({
     by: ["stadiumId"],
     _count: { id: true },
     where: { isDeleted: false, severity: "critical", status: { notIn: ["closed", "resolved"] } },
   });
   const criticalMap = new Map<string, number>(criticalCounts.map((c: any) => [c.stadiumId, c._count.id]));
 
-  const alertCounts = await prisma.alert.groupBy({
+  const alertCounts = await db.alert.groupBy({
     by: ["stadiumId"],
     _count: { id: true },
     where: { isDeleted: false },
@@ -148,13 +152,14 @@ export async function getStadiumHealth(): Promise<StadiumHealth[]> {
 }
 
 export async function getLiveIncidents(filters?: Partial<CommandCenterFilters>): Promise<LiveIncident[]> {
-  if (!prisma) return [];
+  const db = await getDb();
+  if (!db) return [];
   const stadiumNames = await getStadiumNameMap();
   const where: any = { isDeleted: false };
   if (filters?.stadiumId) where.stadiumId = filters.stadiumId;
   if (filters?.severity) where.severity = filters.severity;
   if (filters?.status) where.status = filters.status;
-  const incidents = await prisma.incident.findMany({
+  const incidents = await db.incident.findMany({
     where,
     include: {
       reportedBy: { select: { id: true, name: true } },
@@ -179,11 +184,12 @@ export async function getLiveIncidents(filters?: Partial<CommandCenterFilters>):
 }
 
 export async function getCrowdCongestion(): Promise<CrowdCongestionZone[]> {
-  if (!prisma) return [];
+  const db = await getDb();
+  if (!db) return [];
   const stadiumNames = await getStadiumNameMap();
-  const zones = await prisma.zone.findMany({ take: 40 });
+  const zones = await db.zone.findMany({ take: 40 });
   const zoneIds = zones.map((z: any) => z.id);
-  const recentQueues = await prisma.queueSnapshot.findMany({
+  const recentQueues = await db.queueSnapshot.findMany({
     where: { zoneId: { in: zoneIds }, timestamp: { gte: new Date(Date.now() - 3600000) } },
     orderBy: { timestamp: "desc" },
     take: 40,
@@ -207,7 +213,6 @@ export async function getCrowdCongestion(): Promise<CrowdCongestionZone[]> {
     } else if (queues && queues.length === 1) {
       currentCount = Math.min(capacity, Math.floor(capacity * (queues[0].length / Math.max(capacity * 0.1, 1))));
     } else {
-      const match = z.stadium as any;
       currentCount = Math.floor(capacity * 0.55);
     }
     const densityPercent = Math.round((currentCount / capacity) * 100);
@@ -216,11 +221,12 @@ export async function getCrowdCongestion(): Promise<CrowdCongestionZone[]> {
 }
 
 export async function getQueueWatchlist(): Promise<QueueWatchItem[]> {
-  if (!prisma) return [];
+  const db = await getDb();
+  if (!db) return [];
   const stadiumNames = await getStadiumNameMap();
-  const snapshots = await prisma.queueSnapshot.findMany({ orderBy: { timestamp: "desc" }, take: 20 });
+  const snapshots = await db.queueSnapshot.findMany({ orderBy: { timestamp: "desc" }, take: 20 });
   const snapshotIds = snapshots.map((s: any) => s.id);
-  const prevSnapshots = await prisma.queueSnapshot.findMany({
+  const prevSnapshots = await db.queueSnapshot.findMany({
     where: { id: { in: snapshotIds } },
     orderBy: { timestamp: "asc" },
     take: 20,
@@ -238,20 +244,22 @@ export async function getQueueWatchlist(): Promise<QueueWatchItem[]> {
 }
 
 export async function getTransitDisruptions(): Promise<TransitDisruption[]> {
-  if (!prisma) return [];
-  const updates = await prisma.transitUpdate.findMany({ orderBy: { timestamp: "desc" }, take: 15 });
-  const stadiumNames = await prisma.stadium.findMany({ select: { id: true, name: true } });
+  const db = await getDb();
+  if (!db) return [];
+  const updates = await db.transitUpdate.findMany({ orderBy: { timestamp: "desc" }, take: 15 });
+  const stadiumNames = await db.stadium.findMany({ select: { id: true, name: true } });
   const nameMap = new Map(stadiumNames.map((s: { id: string; name: string }) => [s.id, s.name]));
   return updates.map((u: any) => ({ id: u.id, stadiumId: u.stadiumId, stadiumName: nameMap.get(u.stadiumId) ?? u.stadiumId, hubName: u.hubId ?? "Main Hub", route: u.route, type: u.type, status: u.status, delayMinutes: u.delay, message: u.message, severity: u.delay && u.delay > 15 ? "critical" : u.delay && u.delay > 5 ? "warning" : "info", timestamp: u.timestamp.toISOString() }));
 }
 
 export async function getAccessibilityActivity(): Promise<AccessibilityActivity[]> {
-  if (!prisma) return [];
+  const db = await getDb();
+  if (!db) return [];
   try {
-    const services = await prisma.accessibilityService.groupBy({ by: ["stadiumId", "type"], _count: { id: true }, orderBy: { _count: { id: "desc" } }, take: 20 });
+    const services = await db.accessibilityService.groupBy({ by: ["stadiumId", "type"], _count: { id: true }, orderBy: { _count: { id: "desc" } }, take: 20 });
     if (services.length === 0) return [];
     const nameMap = await getStadiumNameMap();
-    const accessibleQueues = await prisma.queueSnapshot.findMany({
+    const accessibleQueues = await db.queueSnapshot.findMany({
       where: { queueType: "accessible_entry" },
       orderBy: { timestamp: "desc" },
       take: 20,
@@ -278,21 +286,24 @@ export async function getAccessibilityActivity(): Promise<AccessibilityActivity[
 }
 
 export async function getCommunications(): Promise<CommunicationItem[]> {
-  if (!prisma) return [];
-  const notifications = await prisma.notificationCampaign.findMany({ orderBy: { createdAt: "desc" }, take: 15 });
+  const db = await getDb();
+  if (!db) return [];
+  const notifications = await db.notificationCampaign.findMany({ orderBy: { createdAt: "desc" }, take: 15 });
   return notifications.map((n: any) => ({ id: n.id, stadiumId: n.stadiumId ?? "", type: n.type, priority: n.priority, title: n.title, body: n.body, channels: typeof n.channel === "string" ? (() => { try { return JSON.parse(n.channel); } catch { return [n.channel]; } })() : (n.channel ?? []), status: n.status, sentAt: n.sentAt?.toISOString() ?? null, createdBy: n.createdBy, targetAudience: typeof n.targetAudience === "string" ? (() => { try { return JSON.parse(n.targetAudience); } catch { return {}; } })() : (n.targetAudience ?? {}) }));
 }
 
 export async function getRiskSignals(): Promise<RiskSignal[]> {
-  if (!prisma) return [];
-  const anomalies = await prisma.anomalyEvent.findMany({ where: { acknowledged: false }, orderBy: [{ severity: "asc" }, { createdAt: "desc" }], take: 20 });
+  const db = await getDb();
+  if (!db) return [];
+  const anomalies = await db.anomalyEvent.findMany({ where: { acknowledged: false }, orderBy: [{ severity: "asc" }, { createdAt: "desc" }], take: 20 });
   return anomalies.map((a: any) => ({ id: a.id, type: a.type, severity: a.severity, metric: a.metric, value: a.value, threshold: a.threshold, message: a.message, stadiumId: a.stadiumId, zoneId: a.zoneId ?? undefined, gateId: a.gateId ?? undefined, timestamp: a.createdAt.toISOString(), acknowledged: a.acknowledged }));
 }
 
 export async function getMatchTimeline(): Promise<MatchTimelineItem[]> {
-  if (!prisma) return [];
+  const db = await getDb();
+  if (!db) return [];
   const stadiumNames = await getStadiumNameMap();
-  const matches = await prisma.match.findMany({ include: { _count: { select: { incidents: true } } }, orderBy: { kickOff: "asc" }, take: 16 });
+  const matches = await db.match.findMany({ include: { _count: { select: { incidents: true } } }, orderBy: { kickOff: "asc" }, take: 16 });
   return matches.map((m: any) => {
     let currentTime: string | null = null;
     if (m.status === "in_progress" || m.status === "second_half") {
@@ -310,17 +321,14 @@ export async function getMatchTimeline(): Promise<MatchTimelineItem[]> {
 }
 
 export async function getEscalations(): Promise<EscalationItem[]> {
-  if (!prisma) return [];
+  const db = await getDb();
+  if (!db) return [];
   const stadiumNames = await getStadiumNameMap();
-  const escalated = await prisma.incident.findMany({ where: { isDeleted: false, escalationLevel: { gte: 1 }, status: { notIn: ["closed", "resolved"] } }, include: { assignedTo: { select: { name: true } } }, orderBy: { escalationLevel: "desc" }, take: 10 });
+  const escalated = await db.incident.findMany({ where: { isDeleted: false, escalationLevel: { gte: 1 }, status: { notIn: ["closed", "resolved"] } }, include: { assignedTo: { select: { name: true } } }, orderBy: { escalationLevel: "desc" }, take: 10 });
   return escalated.map((e: any) => ({ id: e.id, incidentId: e.id, incidentTitle: e.title, stadiumName: stadiumNames.get(e.stadiumId) ?? "Unknown", severity: e.severity, currentLevel: e.escalationLevel, maxLevel: 3, assignedTo: e.assignedTo?.name ?? "Unassigned", escalatedAt: e.updatedAt.toISOString(), timeInQueue: Math.floor((Date.now() - e.updatedAt.getTime()) / 60000), status: e.status }));
 }
 
 export async function getCommandCenterData(filters?: Partial<CommandCenterFilters>): Promise<CommandCenterState> {
-  if (prismaError) {
-    console.error("[CC] Database not available:", prismaError);
-  }
-
   const safe = <T>(fn: () => Promise<T>, fallback: T) => fn().catch((e) => { console.error("CC query error:", e?.message); return fallback; });
 
   const overview = await safe(getTournamentOverview, {
@@ -347,6 +355,6 @@ export async function getCommandCenterData(filters?: Partial<CommandCenterFilter
     overview, stadiums, incidents, congestion, queues, transit, accessibility, communications, risks, recommendations, timeline, escalations,
     filters: (filters ?? {}) as CommandCenterFilters,
     lastUpdated: new Date().toISOString(),
-    dbError: prismaError,
+    dbError: null,
   };
 }
